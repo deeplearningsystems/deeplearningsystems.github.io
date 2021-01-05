@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  
+  
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    
+    
+    <link rel="shortcut icon" href="../img/favicon.ico">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+    <title>Chapter 9: Frameworks and Compilers - Deep Learning Systems: Algorithms, Compilers, and Processors for Large-Scale Production</title>
+    <link href="../css/bootstrap-3.3.7.min.css" rel="stylesheet">
+    <link href="../css/font-awesome-4.7.0.css" rel="stylesheet">
+    <link href="../css/base.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/highlight.css">
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+    <![endif]-->
+
+    <script src="../js/jquery-3.2.1.min.js"></script>
+    <script src="../js/bootstrap-3.3.7.min.js"></script>
+    <script src="../js/highlight.pack.js"></script>
+    
+    <base target="_top">
+    <script>
+      var base_url = '..';
+      var is_top_frame = false;
+        
+        var pageToc = [
+          {title: "Chapter 9: Frameworks and Compilers", url: "#_top", children: [
+              {title: "9.1 Frameworks", url: "#91-frameworks" },
+              {title: "9.2 TensorFlow", url: "#92-tensorflow" },
+              {title: "9.3 PyTorch", url: "#93-pytorch" },
+              {title: "9.4 TVM", url: "#94-tvm" },
+              {title: "9.5 PlaidML", url: "#95-plaidml" },
+              {title: "9.6 Glow", url: "#96-glow" },
+              {title: "9.7 XLA", url: "#97-xla" },
+              {title: "9.8 MLIR", url: "#98-mlir" },
+              {title: "9.9 Others", url: "#99-others" },
+          ]},
+        ];
+
+    </script>
+    <script src="../js/base.js"></script>
+      <script src="../javascripts/config.js"></script>
+      <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script> 
+</head>
+
+<body>
+<script>
+if (is_top_frame) { $('body').addClass('wm-top-page'); }
+</script>
+
+
+
+<div class="container-fluid wm-page-content">
+  <a name="_top"></a>
+    
+
+    
+    
+      
+    
+
+  <div class="row wm-article-nav-buttons" role="navigation" aria-label="navigation">
+    
+    <div class="wm-article-nav pull-right">
+      <a href="../ch10/" class="btn btn-xs btn-default pull-right">
+        Next
+        <i class="fa fa-chevron-right" aria-hidden="true"></i>
+      </a>
+      <a href="../ch10/" class="btn btn-xs btn-link">
+        Chapter 10: Opportunities and Challenges
+      </a>
+    </div>
+    
+    <div class="wm-article-nav">
+      <a href="../ch08/" class="btn btn-xs btn-default pull-left">
+        <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        Previous</a><a href="../ch08/" class="btn btn-xs btn-link">
+        Chapter 8: Compiler Optimizations
+      </a>
+    </div>
+    
+  </div>
+
+    
+
+    <div id="ch9"></div>
+<h1 id="chapter-9-frameworks-and-compilers">Chapter 9: Frameworks and Compilers</h1>
+<p>A framework has multiple types of compilers: the computation graph optimizer, the primitive libraries JIT to select the best schedule, the code generation path for operations not supported by the primitive libraries, and the other DL compilers covered in Sections <a href="../ch09/#ch09.sec4">9.4</a>-<a href="../ch09/#ch09.sec10">9.10</a>. A computation graph is a high-level graph that represents the computations, data flow, and control-flow of a DL program (a model). Each node typically corresponds to a tensor operator (op), such as conv2d, GEMM, or sigmoid. Some nodes represent control-flow operators to enable conditional branches and loops on different parts of the computation graph. The edges represent the data flow and tensor dependencies between operators, as illustrated in Figure <a href="../ch01/#fig:graph">1.5</a>. A tensor is a multidimensional array; a scalar, vector, and matrix are 0D, 1D, and 2D tensors, respectively. 3D, 4D, and 5D tensors are also common.</p>
+<p>In the DL compiler literature, the terms <em>expression</em>, <em>primitive function</em>, and <em>compute kernel</em> are often used interchangeably, with kernel primarily used as a synonym for convolutional filter. The order of transformations and other operations to execute a primitive is called a <em>schedule</em>. An expression consists of operands and operators. The operands are the tensor inputs and outputs of the primitive function. An example is the sigmoid expression composed of a division, an addition, and an exponentiation operator: <span class="arithmatex">\(\sigma(x) = \frac{1}{1 + e^{-x}}\)</span>. Given the frequent use of this particular expression or pattern of operators, it is beneficial to fuse them into a single sigmoid operator to reduce memory accesses, as explained in Section <a href="../ch08/#ch08.sec4">8.4</a>.</p>
+<p>Frameworks, such as TensorFlow and PyTorch, implement over a thousand of operators for x86 CPUs and Nvidia GPUs. TensorFlow and PyTorch have built-in graph optimizers (Grappler in TensorFlow; JIT in PyTorch (no fancy name)) and a scheduler to execute the computation graphs. The scheduler (also known as execution runtime) dispatches each tensor operation to a precompiled target-specific implementation available in a primitive library if the library supports the operator. Frameworks also have a code generation path to supplement these libraries, such as through LLVM.</p>
+<p>Low-level libraries, such as oneDNN, cuDNN, ROCm MIOpen, Eigen, OpenBLAS, GotoBLAS, and <a href="https://github.com/flame/blis">BLIS</a>, provide optimizations to standard DL or basic Math functions (such as those introduced in Chapter <a href="../ch02/#ch02">2</a>) for a particular ISA. Intel and Nvidia work with the framework maintainers to co-optimize the framework's built-in graph optimizer and integrate the APIs of their respective primitive libraries.</p>
+<p>Inference engines (IE) are inference-only frameworks. They are used to optimize and deploy already-trained models. IEs are leaner than the main frameworks focusing on inference-only graph-optimizations. While the frameworks have mostly consolidated to TensorFlow (TF) and PyTorch, the number of inference engines is slowly growing. Some of the prominent IEs are as follows:</p>
+<ul>
+<li>
+<p><a href="https://www.tensorflow.org/lite/guide">TensorFlow Lite</a> for Android, iOS, and Raspberry Pi devices.</p>
+</li>
+<li>
+<p><a href="https://www.tensorflow.org/js/tutorials">TensorFlow.js</a> for JavaScript environments, such as a web browser and Node.js.</p>
+</li>
+<li>
+<p><a href="https://docs.openvinotoolkit.org/">OpenVINO</a> for x86 CPUs, and Intel's GPUs, FPGAs, and Movidius VPUs (used for edge devices).</p>
+</li>
+<li>
+<p><a href="https://github.com/NVIDIA/TensorRT">TensorRT</a> for Nvidia's GPUs.</p>
+</li>
+<li>
+<p><a href="https://github.com/microsoft/onnxruntime">ONNX Runtime</a> (ONNX RT) for ONNX models, used by Microsoft and gaining adoption elsewhere. It uses OpenVINO, TensorRT, MLAS, and other back-end libraries. Microsoft is expanding ONNX RT to support training as a main framework.</p>
+</li>
+<li>
+<p><a href="https://aws.amazon.com/machine-learning/neuron/">AWS Neuron</a> for TensorFlow, PyTorch, and MXNet models running on AWS Inferentia-based instances.</p>
+</li>
+<li>
+<p><a href="https://neuralmagic.com/blog/announcing-the-neural-magic-inference-engine/">Neural Magic</a> for x86 CPUs.</p>
+</li>
+<li>
+<p><a href="https://www.tensorflow.org/tfx/serving/architecture">TensorFlow-Serving</a> for large-scale data center deployment of TF models. TF-Serving provides a layer over TF to handle inference requests over networks, and uses TF for the inference, so in this respect is not faster or leaner than TF.</p>
+</li>
+<li>
+<p><a href="https://github.com/pytorch/serve">TorchServe</a> for efficient end-to-end inference of PyTorch models. TorchServe provides a layer over PyTorch, similar to TF-Serving with TF.</p>
+</li>
+</ul>
+<p>A limitation of most IEs and ONNX models is that they do not provide all the inference functionalities and operators that the frameworks have. To mitigate this, most IEs have mechanisms to extend their functionality. Some IEs are integrated with a framework so that operators not supported by the IE fall back to the framework. For instance, TensorRT is <a href="https://drive.google.com/file/d/1BJQTlcj40JXVIZa5byMtFab8lls3odyw/">integrated</a> as a back-end runtime executor in TensorFlow. However, this increases the size of the inference software package and may not be practical in edge devices.</p>
+<p>The current approach to train and deploy models is to use frameworks or inference engines with built-in graph optimizers and rely on libraries for target-dependent optimizations to standard primitives. The combination of <span class="arithmatex">\(F\)</span> frameworks, <span class="arithmatex">\(M\)</span> microarchitectures (hardware targets), <span class="arithmatex">\(P\)</span> primitives, <span class="arithmatex">\(S\)</span> schedules per primitive (a primitive function may have different schedules depending on the size of the operands), and <span class="arithmatex">\(D\)</span> different numerical formats has an implementation cost in the order of <span class="arithmatex">\(O(\mathit{FMPSD})\)</span>.</p>
+<p>This engineering approach is not scalable. It is a nontrivial engineering effort to optimize each combination. Also, the optimizations have to be upstreamed into each of the popular frameworks or the primitive libraries. Even standard primitives, such as convolution and LSTM, can have different optimization strategies. For instance, the optimal schedule for convolution depends on the batch size, the filter size, the number of channels, and the algorithmic implementation, such as direct, FFT, or Winograd (introduced in Section <a href="../ch02/#ch02.sec3">2.3</a>). Dispatching between these algorithms to pick the best performing one for a particular shape is a nontrivial task. Also, LSTM units can have different variants, each one requiring a unique optimization strategy.</p>
+<p>An additional challenge with the current approach is that a graph optimization may suggest fusing two primitives to reduce memory access overhead. However, the fused primitive may not be optimized in the primitive library. The challenge to engineer optimized primitives is compounded by (1) the wave of DL hardware being developed, each with a unique microarchitecture, computational paradigm, and memory hierarchy and (2) the heterogeneous design of modern devices. A single device, such as a modern mobile phone, may have a CPU, GPU, DSP, ASIC (for matrix multiplications), and IPU (for image and video decoding).</p>
+<p>DL system engineers at hyperscalers typically write code across all levels of the software stack. The cost of adopting a new hardware architecture may be prohibitive if it requires rewriting the code to run on the new hardware and, worse, if it requires learning a new programming language. There is a market to automate whole-program optimizations to reduce this cost, and startup companies, such as OctoML, Neural Magic, DeepCube, and OnSpecta, are offering optimizations as a service.</p>
+<p>The overarching goal of graph compilers is to automatically generate efficient code for a diverse set of workloads and across different hardware targets that execute at similar or better efficiency to one manually optimized. The compiler lowers a model from the framework representation to a canonicalized high-level domain-specific IR. It then performs a series of target-independent optimizations passes, such as operator fusion, and eliminating unnecessary expressions (as discussed in Section <a href="../ch08/#ch08.sec4">8.4</a>). The optimized IR is functionally equivalent to the IR before the optimization passes. The compiler then lowers the optimized high-level IR to a low-level IR with limited to no control-flow and performs a series of target-dependent optimization passes, such as additional fusion passes, and data layout transformations. These passes aim to use the memory hierarchy and compute available efficiently. The compiler then either generates executable code for the back-end target or passes the optimized low-level IR to a target-specific compiler, such as an LLVM back-end compiler, to generate executable code.</p>
+<p>The main challenge compiling expressions (primitives) is to constrain the space of functionally-equivalent schedules for each expression for a particular hardware target so that an efficient schedule for each expression is quickly selected. The space of schedules is enormous for each expression and hardware target pair. Finding the optimal schedule is an NP-complete problem with potentially billions of choices for a single expression. RL and ML techniques can improve DL compilers. One example is AutoTVM, discussed in Section <a href="../ch09/#ch09.sec4">9.4</a>. Note that passing contextual information from the high-level IR to a low-level IR can limit the search space. However, the low-level IR typically does not contain contextual information.</p>
+<p>Another <a href="https://arxiv.org/abs/1805.01772">challenge</a> is optimizing dynamic graphs, which are graphs with arbitrary allocations (variable input lengths), control-flows, iterations, and recursions [<a href="../biblio/#yu2018">YAB+18</a>]. Static computation graphs work well for directed acyclic graph (DAG) models with a fixed number of layers and dimensions per layer, such as ResNet-50. However, modern NLP, computer vision, and RL models, as well as recursive NNs and GNNs, have dynamic graphs with variable length inputs.</p>
+<p>Most graph compilers have limited support for dynamic models. There are three primary methodologies to represent and use dynamic models with dynamic inputs and control-flow. First, compiling and caching multiple static graphs for different inputs, and selecting the best static graph at runtime. The programmer can provide lower and upper bounds on the input parameters to reduce the number of static graphs generated. Second, eliminating control-flow by unrolling loops or duplicating nodes at the expense of increasing the program's size and, hence, the memory requirements. Third, executing the control-flow in the (slower) Python interpreter, such as with PyTorch imperative mode (note that PyTorch JIT generates control-flow and data flow for declarative mode).</p>
+<p>Frameworks and compilers should support these features:</p>
+<ul>
+<li>
+<p>High- and low-level optimizations that are reusable across front-end frameworks and back-end targets.</p>
+</li>
+<li>
+<p>Strongly-typed tensors; that is, tensors with a known static shape and element type, such as <span class="arithmatex">\(fp32\)</span>, <span class="arithmatex">\(fp16\)</span>, <span class="arithmatex">\(bf16\)</span>, <span class="arithmatex">\(s8\)</span>, <span class="arithmatex">\(u8\)</span>, or <span class="arithmatex">\(\mathit{bool}\)</span>.</p>
+</li>
+<li>
+<p>Common tensor expressions, such as matrix multiplications, convolutions, element-wise activations, broadcast, reductions, and index transformations (such as reverse and concatenation).</p>
+</li>
+<li>
+<p>Fallback on the default implementation for subgraphs or expressions not supported by the compiler.</p>
+</li>
+<li>
+<p>Static graphs with placeholders for the tensor operands.</p>
+</li>
+<li>
+<p>Dynamic shapes.</p>
+</li>
+<li>
+<p>AOT and low-overhead JIT compilation (such as JIT without LLVM).</p>
+</li>
+<li>
+<p>Runtime executor for parallelism to concurrently execute subgraphs across threads or devices.</p>
+</li>
+<li>
+<p>Auto-differentiation and mathematical optimizers, such as SGD, for training.</p>
+</li>
+<li>
+<p>Collective communication primitives (AllReduce, AllGather, AllToAll, Broadcast) for distributed training.</p>
+</li>
+</ul>
+<p>The most prominent DL compilers (outside of the frameworks' built-in graph optimizers) are TVM, XLA, Glow, PlaidML, and various MLIR dialects (MLIR is a compiler infrastructure that supports various IRs or dialects and compiler passes). These compilers are written in C/C++ for speed and portability. While TVM is the most mature compiler today, all compilers are still in their infancy and have limited adoption in industry. This is likely to change in the next few years with the wave of DL hardware starting to hit the market, which increases the market demand for robust compilers. Table <a href="../ch09/#tab:dl-compilers">9.1</a> provides a summary of key features from each of the main DL compilers outside the default framework compilers. Other less prevalent compilers are taco, Tensor Comprehension, DLVM, Weld, and Diesel. Sections <a href="../ch09/#ch09.sec4">9.4</a>-<a href="../ch09/#ch09.sec10">9.10</a> discusses these compilers and their adoption in industry.</p>
+<div id="tab:dl-compilers"></div>
+<p><em>Table 9.1:</em> Features across various DL compilers.
+<img alt="" src="../figures/ta09-01.png" /></p>
+<p>While DL compilers aim to support multiple front-end frameworks, they are often developed by a team related to an existing framework that firstly focuses on that framework. In particular, XLA and MLIR dialects with TensorFlow, Glow with PyTorch, and TVM with MXNet. Nevertheless, compilers are expanding their front-end support.</p>
+<p>Grappler (TensorFlow's built-in graph optimizer), PyTorch JIT, XLA HLO, and Glow compilers strive to optimize the inefficiency brought by the user program via target-independent optimizations. They rely on a primitive library (such as cuDNN, MIOpen, oneDNN, or Eigen) or another compiler for target-dependent optimizations. PlaidML, various MLIR dialects, and TVM support target-independent and dependent optimizations and back-end code-generation.</p>
+<p>In this reminder of this chapter, we review the DL frameworks with a particular focus on TensorFlow and PyTorch, which have built-in graph optimizers and schedulers to execute the computation graphs. We also describe in more detail the prevalent DL compilers.</p>
+<div id="ch09.sec1"></div>
+<h2 id="91-frameworks">9.1 Frameworks</h2>
+<p>DL libraries or frameworks provide the programmer tools to define, train, and deploy models. Frameworks abstract many of the mathematical and implementation details. For instance, they contain functions or modules to differentiate a model with respect to a cost function (compute its gradients), so the programmer does not have to code the gradient computations. While the computational performance across the frameworks varies depending on the optimization techniques exploited, the statistical performance of the models trained across frameworks is essentially the same; they implement essentially the same mathematical algorithms.</p>
+<p>Frameworks compile the program to a graph and optimize the graph. The nodes are implemented using C++, CUDA, or using a precompiled target-specific implementation available in a primitive library. Frameworks may also use a DL compiler to improve execution efficiency.</p>
+<p>The most popular frameworks are TensorFlow developed by Google and PyTorch developed by Facebook, both written in C++ and have a Python wrapper. TensorFlow is the most popular framework in the industry and the second most popular in academia. PyTorch is the most popular framework in <a href="https://www.oreilly.com/ideas/one-simple-graphic-researchers-love-pytorch-and-tensorflow?fbclid=IwAR3kYmlyD7zky37IYFu0cafQn7yemhl8P-7MNyB30z0q5RDzxcTOrP8kxDk">academia</a>, the second most popular in the industry, and the fastest-growing framework [<a href="../biblio/#lorica2019">Lor19</a>]. Other frameworks used in industry but (based on <a href="https://trends.google.com/trends/explore?date=today%205-y&amp;q=TensorFlow,PyTorch,MXNet,PaddlePaddle">Google Trends</a>) with limited adoption outside the companies that developed them are Apache MXNet, PaddlePaddle, and Flax/JAX. Amazon (in collaboration with the University of Washington, Carnegie Mellon University) developed MXNet, Baidu developed PaddlePaddle, and Google developed Flax/JAX (primarily for research). <a href="https://github.com/google-research/flax/tree/prerelease">Flax</a> provides high-level functions on top of <a href="https://jax.readthedocs.io/en/latest/">JAX</a>, a JIT compiler that uses Autograd and XLA for differentiation and executes NumPy code on CPUs, TPUs, and GPUs [<a href="../biblio/#jax2020">Jax20</a>]. <a href="https://numpy.org/">NumPy</a> is a library for Python for multidimensional tensor operations.</p>
+<p>TensorFlow and PyTorch offer two programming paradigms: imperative programming and declarative (symbolic) programming. Imperative programming performs the computations as they run, and declarative programs separate the definition of the various expressions in the program from the execution. Gluon and the standard front-end MXNet, respectively, also adopt these paradigms.</p>
+<p>In the remainder of this section, we provide a brief history and adoption of various frameworks. We discuss imperative and declarative programming styles and their tradeoffs as well as dynamic and static programming.</p>
+<div id="ch09.sec1.sub1"></div>
+<h3 id="911-brief-history-and-adoption">9.1.1 Brief History and Adoption</h3>
+<p>A framework's popularity is one indicator of its usability and community support, including the number of tutorials, available GitHub repositories, and discussion forums. Over the past years, many frameworks have been developed (most are no longer actively maintained), such as (in alphabetical order) BigDL, Caffe, Caffe2, Chainer, CNTK, CoreML, CXXNET, DarkNet, DL4J, DSSTNE, DyNet, fast.ai, IDLF, JAX/Flax, Kaldi, Keras, Lasagne, MXNet/Gluon, neon, ONNX RT, PaddlePaddle, PyTorch, Singa, TensorFlow, Theano, and Torch.</p>
+<p><a href="https://github.com/Theano/Theano">Theano</a> was developed by the Montreal Institute for Learning Algorithms (MILA) and was the first widely adopted framework in academia. <a href="https://github.com/BVLC/caffe">Caffe</a> was later developed by UC Berkeley and gained rapid adoption in the market, primarily for computer vision tasks. For a couple of years, Caffe was the most popular framework in the industry. TensorFlow and Keras (a wrapper around TensorFlow and other now-deprecated frameworks) took over the top spot soon after TensorFlow was released. Theano and Caffe are no longer supported. Kaldi is a C++ toolkit for speech recognition research (supports DL and ML algorithms) and has enjoyed some success in that community for several years.</p>
+<p>Other hyperscalers have attempted to replicate the success of TensorFlow: Microsoft with CNTK and later with ONNX RT, Amazon with DSSTNE and later with MXNet/Gluon, and Baidu with PaddlePaddle. The only other widespread success has been Facebook with PyTorch. Today, the market has mostly consolidated to TensorFlow and PyTorch, with MXNet, PaddlePaddle, and ONNX RT as a <a href="https://trends.google.com/trends/explore?date=today%205-y&amp;q=TensorFlow,PyTorch,MXNet,PaddlePaddle">distant</a> third, forth, and fifth, respectively.</p>
+<div id="ch09.sec1.sub2"></div>
+<h3 id="912-programming-style-imperative-and-declarative">9.1.2 Programming Style: Imperative and Declarative</h3>
+<p>ML libraries offer two programming styles: imperative where expressions execute immediately, and declarative where programmers first construct the dataflow graph, and then the entire graph is optimized and executed. TensorFlow v1 (there was no v0) was designed with a declarative programming style and PyTorch v0 with an imperative programming style. TensorFlow v2 and PyTorch v1 provide both styles to the programmer.</p>
+<p>An imperative program performs each computation as the program executes. This is referred to as <em>define-by-run</em> or <a href="https://github.com/pytorch/pytorch/blob/master/docs/source/_static/img/dynamic_graph.gif">dynamic graph</a> because the model or graph is defined dynamically as it runs, or as <em>eager execution</em> because the program is eager to compute and evaluate an expression as soon as the programmer requests to examine the output. For reference, most code written in Python is imperative.</p>
+<p>Chainer adopted imperative programming in 2015. PyTorch v0, TensorFlow v2, and Gluon later followed Chainer's approach. The (imperative) code to implement a function across these frameworks has <a href="https://twitter.com/fchollet/status/1052228463300493312/photo/1">similar</a> characteristics.</p>
+<p>A declarative program first defines a function abstractly (symbolically) with no actual numerical computations. Then the program compiles and runs using actual tensor values. This is referred to as <em>graph programming</em> or <em>define-and-run</em> because the graph is first defined and then executed, or as <em>lazy execution</em> because the program waits until the graph is constructed and executes only the dependent expression, or as <em>symbolic programming</em> because the variables are symbols with no numerical values until it executes.</p>
+<p>Declarative programming enables the AOT compiler to do analysis and optimizations across the entire set of expressions. The runtime exploits buffer reuse and inter-op parallelism. A single static computation graph often represents the entire topology.</p>
+<p>A static graph is suitable for production environments to get maximum performance in terms of speed and memory. Having the entire computation graph available provides the compiler information on what values to compute (and ignores graph nodes that are not necessary for the desired output), how much memory to allocate, and what subgraphs to execute in parallel.</p>
+<p>Declarative programs follow a dataflow programming model, that is, the program is represented as a computational (symbolic) directed graph with nodes representing computations and edges representing data. Special nodes in the graph represent the control-flow.</p>
+<p>Imperative programs implement control-flow in the native language, which facilitates specifying arbitrary control-flow in the program. For instance, in PyTorch, the Python native control-flow statements <code>if</code>, <code>for</code>, and <code>while</code> are used. In addition to being more intuitive, this explicit control-flow facilitates using models with complex dynamic graphs (non-DAGs) often used in NLP and RL research.</p>
+<div id="ch09.sec1.sub3"></div>
+<h3 id="913-automatic-differentiation">9.1.3 Automatic Differentiation</h3>
+<p>A step in training is computing the gradient of the cost with respect to each weight and activation via backpropagation. Once a model and a cost function are defined, the frameworks determine the computations necessary for the backpropagation. This feature is native in all popular frameworks and known as <em>automatic differentiation</em> (AD).</p>
+<p>AD computes the gradient of one node with respect to the previous node and uses the chain rule to compute the gradient of the cost with respect to each weight and activation. In symbolic programming, this is done by adding gradient computation nodes. In imperative programming, this is done by recording or tracing the flow of values as they occur and generating a dynamic graph; the programmer marks the layers needed for AD.</p>
+<div id="ch09.sec2"></div>
+<h2 id="92-tensorflow">9.2 TensorFlow</h2>
+<p>TensorFlow is an open-source library, written in C++, developed by Google with several contributors outside of Google. It was released in November 2015 and has become the most popular framework in the industry. It supports <a href="https://www.youtube.com/watch?v=qzljG6DKgic&amp;t=12m34s">over</a> a thousand different operators [<a href="../biblio/#shpeisman2019">SL19</a>]. In addition to Python, TensorFlow supports other language APIs (some maintained by the broader community at various degrees of support), <a href="https://www.tensorflow.org/api_docs">including</a> Swift, Julia, C++, Scala, Java, JavaScript, Rust, and Go. Models trained by TensorFlow can deploy across various inference engines.</p>
+<p><a href="https://ai.google/research/pubs/pub45381">TensorFlow v1</a> is designed as a declarative programming style library [<a href="../biblio/#abadi2016">ABC+16</a>]. Programmers construct an AST (the graph), usually in Python using a low-level API, and then compile and interact with the graph using a TensorFlow <em>session</em>. However, this low-level API has a <a href="https://jacobbuckman.com/post/tensorflow-the-confusing-parts-1/">steep</a> learning curve and does not let the programmer use native Python control-flow or debuggers. TensorFlow v1 uses control-flow nodes, such as loop condition, switch, and merge nodes to represent data flow, which <a href="https://arxiv.org/abs/1805.01772">increases</a> the complexity of pattern matching required for optimizations [<a href="../biblio/#yu2018">YAB+18</a>]. To facilitate v1 usage, higher-level libraries and APIs were developed, such as TFLearn, Slim, SKflow, and Keras. TensorFlow v1 is under maintenance mode, and all new work is going into TensorFlow v2.</p>
+<p>The most notable changes from TensorFlow v1 to v2 are: (1) the Keras APIs are default, (2) eager execution is default, and (3) improved organization for APIs, functions, and namespaces. TensorFlow provides a conversion <a href="https://www.tensorflow.org/beta/guide/upgrade">tool</a> to port the code from v1 to v2. To help determine whether an online document or code sample refers to v1 or v2, note that v1 uses the following objects not present in v2: <code>tf.enable_eager_execution</code>, <code>session.run</code>, <code>tf.placeholder</code>, and <code>feed_dict</code>.</p>
+<p>The remainder of this section is as follows: We introduce the Keras APIs infrastructure, the Estimator API, and the tools to convert a dynamic graph constructed in Eager-style code to a static graph using <code>@tf.function</code> and <a href="https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/autograph/g3doc/reference/index.md">AutoGraph</a>. We highlight the tools for distributed training, the TensorBoard visualization tool, the Profiler tool, and the compilation TensorFlow infrastructure. Other TensorFlow libraries and tools with some adoption in industry are TensorFlow Hub, TensorFlow Extended (TFX), TensorFlow Lite (TFLite), and TensorFlow Probability (TFP). <a href="https://www.tensorflow.org/hub">TensorFlow Hub</a> provides an extensive service of prebuilt models; end-users can fine-tune them or use them as preprocessing layers (such as some of the embeddings available). <a href="https://www.tensorflow.org/tfx">TFX</a> is an end-to-end series of connected libraries use to deploy DL pipelines; specifically, TFX provides the critical parts of the DL pipeline except for the model building and training (which is core TensorFlow). <a href="https://www.tensorflow.org/lite">TFLite</a> is a lite framework for on-device inference. <a href="https://www.tensorflow.org/probability">TFP</a> is a library for probabilistic reasoning and statistical analysis.</p>
+<div id="ch09.sec2.sub1"></div>
+<h3 id="921-keras-apis">9.2.1 Keras APIs</h3>
+<p>In TensorFlow v2, Keras is part of TensorFlow (no need for a separate installation) and the default API. Keras is a widely adopted high-level API for defining and training models. Note that Keras has a <a href="https://github.com/keras-team/keras">reference</a> implementation maintained as a separate project. TensorFlow includes a complete implementation of the Keras API (in the <a href="https://www.tensorflow.org/api_docs/python/tf/keras"><code>tf.keras</code></a> module) with some enhancements.</p>
+<p>A Keras model (and its superclass, <a href="https://www.tensorflow.org/api_docs/python/tf"><code>tf.Module</code></a>) is a way to store, access, and save variables. Keras is more <a href="https://stackoverflow.com/questions/802050/what-is-opinionated-software">opinionated</a> than <code>tf.Module</code> about functionality; it provides abundant built-in support for ML/DL workflows. <code>tf.Module</code>, by contrast, is lightweight and unopinionated; it is used as the base class for <a href="https://github.com/deepmind/sonnet">Sonnet</a>, DeepMind's high-level API built on top of TensorFlow.</p>
+<p>TensorFlow v2 provides the Keras Sequential API and Keras Functional API for declarative programming, and the Keras Subclassing API for imperative programming. The styles are interoperable, allowing the programmer to mix and match. The Keras API abstracts many of the complexities of the low-level APIs, facilitating prototyping and debugging models. Note that the Sequential and Functional APIs may feel imperative, and developers may not realize they are using a symbolic programming style. Note that Keras models, saved with the SavedModel format, contain (among other things) a graphdef and weights, so they serve the same function as the saved graphs in TensorFlow v1 for most uses. Table <a href="../ch09/#tab:tf-apis">9.1</a> shows the pros and cons of these APIs.</p>
+<div id="tab:tf-apis"></div>
+<p><em>Table 9.2:</em> Pros and cons of the programming styles offered in TensorFlow v2.
+<img alt="" src="../figures/ta09-02.png" /></p>
+<p>The Keras Sequential API is used when the model does not have branches, and each layer has one tensor input and one tensor output. The Keras Functional API is used for directed acyclic graphs (DAGs), where each layer may have multiple tensor inputs or outputs, shared layers, or nonsequential data flow, such as in residual connections. The Keras Subclassing API is used for imperative programming; the programmer defines a new class that inherits and extends the Keras Model class defined by the framework. This class imperatively defines a function with the model and a function with the forward pass (the backward pass is generated automatically). The low-level API from TensorFlow v1 is still available to use in TensorFlow v2.</p>
+<p>We recommend using the Keras Subclassing API as it provides flexibility to develop and experiment with any type of model, including dynamic models. Also, it has a similar programming style to PyTorch, which can facilitate using both frameworks (it is not uncommon for different engineers in the same company to use one or the other).</p>
+<div id="ch09.sec2.sub2"></div>
+<h3 id="922-eager-execution">9.2.2 Eager Execution</h3>
+<p>In TensorFlow v2, <a href="https://arxiv.org/pdf/1903.01855.pdf">eager</a> execution (rather than graph execution) is enabled by default [<a href="../biblio/#agrawal2019">AMP+19</a>]. Eager execution mode is primarily used to design and debug models, while static graph execution is used to deploy models in a production environment. The expressions are evaluated without initializing a session, unlike in TensorFlow v1 and <code>tf.Tensor</code> objects reference actual values rather than symbolic ones. This type of execution facilitates prototyping using Python control-flows (simplifying the design of dynamic models) and debugging with standard Python tools. In eager execution, <code>tf.GradientTape</code> records operations for automatic differentiation. Unless the programmer explicitly turns off <code>tf.GradientTape</code>, any op with variables gets automatically traced. The programmer only needs to watch static tensors that get passed in explicitly. In Keras, the programmer can mark layers as trainable (default) or not trainable.</p>
+<div id="ch09.sec2.sub3"></div>
+<h3 id="923-tffunction-and-autograph">9.2.3 <code>@tf.function</code> and AutoGraph</h3>
+<p>A concern with eager execution is the lack of graph-level optimizations. To mitigate this, programmers can add the <code>@tf.function</code> <a href="https://www.akshayagrawal.com/files/tfe_talk.pdf">decorator</a> to their functions after successfully prototyping and before deploying it [<a href="../biblio/#agrawal2019">AMP+19</a>]. With <code>tf.function</code>, the backward pass is precomputed while tracing, so the gradient tape is not invoked. The <code>@tf.function</code> decorator translates Python programs into TensorFlow graphs for performance optimizations. A function called from an annotated function runs in graph mode and does not need to be explicitly decorated.</p>
+<p>The <code>@tf.function</code> decorator is a JIT tracer. When the decorated function runs, it generates a graph function. If the tensor inputs change, a new trace of the Python function is triggered to generate a new graph function. These graph functions are polymorphic in their inputs; a single Python function can generate multiple graph functions.</p>
+<p>This graph function represents Python control-flow internally as TensorFlow control-flow nodes using AutoGraph. AutoGraph is a feature of <code>@tf.function</code> that converts various Python constructs, such as <code>for</code>, <code>while</code>, and <code>if</code>, into TensorFlow graph equivalents, such as <code>tf.while_loop</code> and <code>tf.cond</code>. This conversion is required to port the graph to environments without a Python interpreter. AutoGraph supports arbitrary nestings of control-flow and can be used with complex models. Autograph also supports <code>assert</code> -> <code>tf.assert</code>, and <code>print</code> -> <code>tf.print</code>, gated on whether the arguments are tensors or Python objects.</p>
+<div id="ch09.sec2.sub4"></div>
+<h3 id="924-estimator">9.2.4 Estimator</h3>
+<p>TensorFlow v2 keeps the <a href="https://www.tensorflow.org/guide/estimators">Estimator</a> API (including premade Estimators), another high-level TensorFlow API introduced in v1. Premade Estimators <a href="https://developers.googleblog.com/2017/09/introducing-tensorflow-datasets.html">provide</a> preimplemented, ready-to-use model functions for training and inference, such as Linear Classifier, DNN Classifier, Combined DNN Linear Classifier (Wide &amp; Deep models), and Gradient Boosted Trees. Note, however, that using the Keras API <a href="https://www.tensorflow.org/tutorials/estimator/premade">is recommended</a> over Estimators.</p>
+<p>In <code>distribute.Strategy</code> in TensorFlow v2, the distribution toolkit was rewritten to build on the low-level parts of the library. Likewise, <code>tf.data</code>'s distributed-by-default approach in v2 makes a lot of the metaprograming in Estimators unnecessary.</p>
+<div id="ch09.sec2.sub5"></div>
+<h3 id="925-tensorboard">9.2.5 TensorBoard</h3>
+<p><a href="https://www.tensorflow.org/tensorboard">TensorBoard</a> displays the graph, embeddings, and tensor distributions. It plots cost values during a run, which helps determine convergence and facilitates debugging. TensorBoard also compares various models and costs across training runs. In addition, TensorFlow enables the programmer to visualize the graph using <code>keras.utils.plot_model</code>, and <code>model.summary()</code> to get the description of the layers, weights, and shapes.</p>
+<div id="ch09.sec2.sub6"></div>
+<h3 id="926-profiler">9.2.6 Profiler</h3>
+<p><a href="https://www.tensorflow.org/guide/profiler">Profiler</a> tracks the performance of models and hardware consumption (time and memory) for the various operators. It can be used during training and inference to resolve performance bottlenecks and improve a model's performance on a CPU or GPU.</p>
+<div id="ch09.sec2.sub7"></div>
+<h3 id="927-tensorflow-runtime-execution">9.2.7 TensorFlow Runtime Execution</h3>
+<p>The TensorFlow runtime is a cross-platform module that controls the execution of the graph. The TensorFlow code representing a computation graph is serialized to GraphDef format, the TensorFlow IR, using Google <a href="https://developers.google.com/protocol-buffers">Protocol Buffers</a>. During runtime, this serialized graph is optimized through the <a href="https://github.com/tensorflow/tensorflow/tree/master/tensorflow/core/grappler">Grappler</a> module, a device-independent graph optimizer to canonicalize and, depending on the back-end compiler, to optimize the graph. The TensorFlow runtime takes subgraphs and marks them for dispatch to its runtime or a different back-end runtime selected by the programmer, as shown in Figure <a href="../ch09/#fig:tf-graph">9.1</a>. When an operator is not supported by the different runtime, it falls back to the default runtime.</p>
+<div id="fig:tf-graph"></div>
+<p><img alt="" src="../figures/ch09-01.png" />
+<em>Figure 9.1:</em> The TensorFlow IR GraphDef is optimized by Grappler and passed to other compilers for additional optimizations. Based on [<a href="../biblio/#mlir2019">Goo19</a>].</p>
+<p>During runtime, Grappler's <a href="https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/grappler/optimizers/meta_optimizer.cc">MetaOptimizer</a> provides high-level graph optimization. Some optimizations have a <a href="https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/grappler/optimizers/remapper.cc">dependency</a> on whether a node is supported by the primitive libraries. The runtime uses a LUT to find precompiled primitives from libraries, such as oneDNN and Eigen for CPUs, and cuDNN for Nvidia GPUs. The runtime also allocates memory and thread pools so parts of the graph can run in parallel.</p>
+<p>Google is developing <a href="https://blog.tensorflow.org/2020/04/tfrt-new-tensorflow-runtime.html">TFRT</a>, a new TensorFlow Runtime, to replace the existing runtime and provide a unified, extensible infrastructure across various hardware targets. TFRT executes the optimized, target-specific kernels generated by MLIR, or directly uses (in eager execution) the TensorFlow API calls. It is unknown when Google will make TFRT the default runtime. We recommend hardware targeting market deployment in 2022 and beyond use TFRT.</p>
+<div id="ch09.sec3"></div>
+<h2 id="93-pytorch">9.3 PyTorch</h2>
+<p><a href="https://github.com/pytorch/pytorch">PyTorch</a> is an open-source Python library for tensor computations similar to NumPy but with GPU support. It has built-in automatic differentiation and APIs for training and inference applications. PyTorch is maintained by Facebook with multiple contributors outside of Facebook. It was released in October 2016. It is the most popular framework in <a href="https://www.oreilly.com/ideas/one-simple-graphic-researchers-love-pytorch-and-tensorflow?fbclid=IwAR3kYmlyD7zky37IYFu0cafQn7yemhl8P-7MNyB30z0q5RDzxcTOrP8kxDk">academia</a>, the <a href="https://trends.google.com/trends/explore?date=today%205-y&amp;q=TensorFlow,PyTorch,MXNet,PaddlePaddle">second</a> most popular framework in the industry, and the fastest-growing framework [<a href="../biblio/#lorica2019">Lor19</a>].</p>
+<p>PyTorch v0 was designed as an imperative programming style library to facilitate research and development. For production-scale where performance is critical, Facebook developed the <a href="https://caffe2.ai/blog/2017/04/18/caffe2-open-source-announcement.html">open-source</a> Caffe2 graph-based execution library in April 2017. Facebook's servers and mobile app used Caffe2. To better interface between PyTorch v0, Caffe2, and other frameworks, Facebook partnered with Microsoft and later with other companies to develop the Open Neural Network Exchange (<a href="https://github.com/onnx/onnx">ONNX</a>) format released in Sep. 2017. ONNX provides a standard format for various frameworks to exchange (export and import) extensible computation graph models for inference and, thus, streamline the path from research and development to production. A model would be developed and trained in PyTorch v0, exported to ONNX, and then imported into Caffe2 for production at scale.</p>
+<p>PyTorch v1 (released in December 2018), hereafter referred to as just PyTorch, merges PyTorch v0 and Caffe2. PyTorch enables switching models from eager (imperative) mode to graph execution (declarative) mode, which further streamlines the path from research and development to production. Programmers develop, debug, and test their models in eager mode. They then migrate the models to graph mode for graph optimizations and may export a non-Python representation for scaled production in servers, mobile, or other platforms. Other key additions to PyTorch are a C++ API, JIT compilation, and a distributed library across Python and C++ environments.</p>
+<p>PyTorch computation graphs are dynamic. PyTorch keeps track of the operators performed and builds a computation graph behind the scenes. Every time the programmer adds a layer, PyTorch rebuilds the computation graph. Automatic differentiation uses this computation graph.</p>
+<p>PyTorch GPU expressions execute <a href="https://pytorch.org/docs/stable/notes/cuda.html#asynchronous-execution">asynchronously</a>, meaning the expressions can run in the GPU and synchronize with the CPU host when necessary, such as when copying data between host and device, or between devices. This synchronization is invisible to the programmer. For debugging, it may be useful to force synchronize-execution to trace an error.</p>
+<p>PyTorch supports x86/64, Arm, and POWER CPUs and Nvidia GPU back-end targets. Support for other platforms is available via Glow. Google and Facebook <a href="https://cloud.google.com/blog/products/ai-machine-learning/introducing-pytorch-across-google-cloud">added</a> a PyTorch front-end to XLA to enable PyTorch programs to run on TPUs [<a href="../biblio/#sheth2018">She18</a>].</p>
+<div id="ch09.sec3.sub1"></div>
+<h3 id="931-prominent-packages">9.3.1 Prominent Packages</h3>
+<p>Some of the most prominent packages used in PyTorch are the following:</p>
+<p>[<strong>torch</strong>]{.smallcaps} contains data structures and operators that operate on torch tensors. A torch tensor is a multidimensional array with all its elements being a single data type, such as <span class="arithmatex">\(fp64\)</span>, <span class="arithmatex">\(fp32\)</span>, <span class="arithmatex">\(fp16\)</span>, <span class="arithmatex">\(\mathit{int64}\)</span>, <span class="arithmatex">\(\mathit{int32}\)</span>, <span class="arithmatex">\(\mathit{int16}\)</span>, <span class="arithmatex">\(\mathit{int8}\)</span>, or <span class="arithmatex">\(\mathit{boolean}\)</span>.</p>
+<p>[<strong>torch.tensor</strong>]{.smallcaps} is used to define and initialize torch tensors <a href="https://pytorch.org/docs/stable/torch.html">similar</a> to NumPy <code>ndarray</code>. Note that there are various <a href="https://medium.com/secure-and-private-ai-writing-challenge/introduction-to-tensors-2-using-pytorch-2b6270a838f">ways</a> to convert from a torch tensor to a NumPy ndarray.</p>
+<p>[<strong>torch.nn</strong>]{.smallcaps} contains the building blocks to models, similar to the Keras API. The <code>torch.nn.Module</code> is the base class for all NN modules. The program inherits this class to define a model. The <code>nn.Sequential</code> constructor adds the modules in the order they are passed, similar to the Sequential Keras API. The <code>nn.Module</code> is similar to the Subclassing Keras API.</p>
+<p>[<strong>torch.autograd</strong>]{.smallcaps} is used for automatic differentiation. The programmer takes advantage of this package by marking which tensors should have their gradients computed. The gradients are computed (using the chain rule) when the <code>backward()</code> function is called on a variable. The inputs and labels have <code>requires_grad</code> set to <code>False</code> as those variables are not differentiable. Note that automatic differentiation is not part of the tensor library ATen (discussed in Section <a href="../ch09/#ch09.sec3.sub2">9.3.2</a>), but rather an augmentation on top of ATen.</p>
+<p>[<strong>torch.jit</strong>]{.smallcaps} is the key differentiator from PyTorch v0. This package enables the seamless transition from eager mode to graph (also known as script) mode providing both flexibility and speed. It compiles the code (the annotated parts for compilation) to a statically typed graph representation and performs graph-level optimizations.</p>
+<p>PyTorch provides two JIT modes, Tracing and TorchScript, shown in Figure <a href="../ch09/#fig:pytorch">9.2</a>. The <code>torch.jit.trace</code> mode works for models with no control-flow, such as the VGG model. The <code>torch.jit.script</code> mode is a statically-typed subset of Python that uses the TorchScript compiler. TorchScript translates the Python AST to a static graph. It is popular for models where control-flow is important, such as RNN models. A model may use both modes; in particular, when needing control-flow in a complex model, a scripted function can use a traced function on the portions of the model with no control-flow.</p>
+<div id="fig:pytorch"></div>
+<p><img alt="" src="../figures/ch09-02.png" />
+<em>Figure 9.2:</em> PyTorch can be executed in Eager mode via the Python runtime or in JIT mode via TorchScript, Tracing or both to generate a complete graph representation. This graph is optimized and then executed. Each expression is executed with the ATen library.</p>
+<p>The <code>@torch.jit.script</code> decorator scrips a function or an <code>nn.Module</code>. The script mode can execute without Python. Using the C++ native module LibTorch, a Python-based model can be loaded and run in C++, which is useful for non-Pythonic environments, such as embedded systems.</p>
+<p>[<strong>torch.optim</strong>]{.smallcaps} provides mathematical optimization algorithms to train a model, such as SGD.</p>
+<p>[<strong>torch.cuda</strong>]{.smallcaps} provides CUDA tensors that utilize GPUs for computation.</p>
+<p>[<strong>torch.distributed</strong>]{.smallcaps} supports distributed training across multiple nodes using NCCL for GPUs and Gloo or MPI for CPUs.</p>
+<p>[<strong>torch.utils</strong>]{.smallcaps} supports data loading and TensorBoard visualization (discussed in Section <a href="../ch09/#ch09.sec2.sub5">9.2.5</a>).</p>
+<div id="ch09.sec3.sub2"></div>
+<h3 id="932-tensor-libraries">9.3.2 Tensor Libraries</h3>
+<p>Tensor expressions are implemented in the <a href="https://github.com/pytorch/pytorch/tree/master/aten/src">ATen</a> C++ tensor library and some are still in the older tensor libraries (TH, THC, THNN, THCNN) from the Torch7 days. ATen implements many tensor types and different operators.</p>
+<p>For the CPU, ATen and C2 <a href="https://github.com/pytorch/pytorch/issues/8561">use</a> oneDNN in the shipped binaries with a fallback to Eigen and to OpenBLAS (particularly for PPC64). For the GPU, ATen <a href="https://discuss.pytorch.org/t/which-linear-algebra-library-been-used-by-aten/15275">uses</a> cuBLAS, cuSolver, and MAGMA.</p>
+<p>The ATen and C2 tensor libraries used in Caffe2 merged into the C10 library, which contain the tensor and storage data structures.</p>
+<div id="ch09.sec3.sub3"></div>
+<h3 id="933-other-libraries">9.3.3 Other Libraries</h3>
+<p>Other PyTorch-based libraries are torchvision, torchtext (used by <a href="https://github.com/facebookresearch/pytext">PyText</a> for Facebook's Messenger), and torchaudio. These libraries provide access to datasets and models in the vision, text, and audio domain, respectively.</p>
+<p>fast.ai introduced the <a href="https://github.com/fastai/fastai">fastai</a> high-level library that runs on top of PyTorch. It provides prebuilt models and additional tools, such as the LR finder. The library also runs on top of Swift4TF, but that project is less matured.</p>
+<div id="ch09.sec4"></div>
+<h2 id="94-tvm">9.4 TVM</h2>
+<p><a href="https://arxiv.org/abs/1802.04799">TVM</a> is an Apache <a href="https://incubator.apache.org/projects/tvm.html">incubator</a> project, and an end-to-end DL compiler stack for automatic code-generation across various hardware targets [<a href="../biblio/#chen2018">CMJ+18</a>]. TVM was <a href="https://www.usenix.org/conference/osdi18/presentation/che">developed</a> by Tianqi Chen et al. at the University of Washington (UW). The project has several contributors <a href="https://tvm.ai/2019/03/18/tvm-apache-announcement">from</a> UW, Amazon Web Services (AWS), Qualcomm, Facebook, Google, Huawei, AMD, Microsoft, Cornell University, and University of California, Berkeley [<a href="../biblio/#tvm2019">Tvm19</a>].</p>
+<p>The TVM stack has two main levels of abstraction: a graph compiler and an operator-level compiler. TVM takes as input a model from MXNet, PyTorch/TorchScript, TensorFlow, Keras, CoreML, ONNX, and DarkNet and compiles it to the <a href="https://docs.tvm.ai/dev/relay_intro.html">Relay IR</a> (also known as <a href="https://docs.tvm.ai/dev/relay_intro.html">NNVM</a> v2) [<a href="../biblio/#relay-ir2019">Tvm19</a>]. TVM is tightly integrated with MXNet with modules shared between the projects; both projects started at UW as part of the Deep Machine Learning Community (DMLC). The <a href="https://drive.google.com/file/d/1Sa3yJ5qp6nVgK5CwftkRF5MBt3-FUCxT/view">Relay IR</a> is a statically-typed, complete (purely functional), modular, and extensible programming language. Relay provides common DL primitives, auto-differentiation, and mathematical optimizers.</p>
+<p>TVM performs high-level graph optimization, on the Relay IR and then compiles into a low-level specification language called a <em>tensor expression</em> (TE). This language declaratively specifies the tensor operands, their shapes, and the operators, but the execution details are unspecified; thus, TVM decouples the definition of the expression with the execution. TVM <a href="https://www.usenix.org/conference/osdi18/presentation/chen">borrows</a> this decoupling idea from the Halide programming language [<a href="../biblio/#chen2018">CMJ+18</a>].</p>
+<p>TVM defines a space of functionally-equivalent schedules for a TE and a given target. The space of schedules includes various loop transformations, cache localities, and vectorization strategies; a TE potentially has billions of schedules from all the possible combinations. A matrix multiplication TE can result in schedules with vanilla loops (see Algorithm <a href="#alg:conv">[alg:conv]</a>), tiled loops, and accelerator intrinsics. Improving the constraints on the space of schedules is an important research area.</p>
+<p>TVM borrows scheduling algorithms from Halide for CPUs and incorporates new algorithms for GPUs and accelerators. For a GPU and TPU-like accelerator, the space of schedules includes various strategies for thread cooperation and shared memory across the compute units. The space of schedules is usually the largest for a TPU-like accelerator. It includes hardware intrinsics for high-dimension tensor expressions and a hierarchical memory system with memory buffers and instructions for memory access. TVM uses a description of the hardware interface to narrow the scheduling space.</p>
+<p>A goal of TVM is to automatically search over this space to obtain an efficient program configuration for a TE for a particular hardware target. One naive approach is to randomly sample the scheduling space, test each schedule on the target hardware, and return the sampled program configuration with the minimum runtime. Instead, TVM uses a simulated annealing algorithm to search the space of schedules, and <em>AutoTVM</em>, an ML-based performance predictor, to predict the runtime of a schedule without executing the schedule on the actual hardware.</p>
+<p>AutoTVM learns a model that predicts the runtime of a schedule using an <a href="https://www.kdd.org/kdd2016/papers/files/rfp0697-chenAemb.pdf">XGBoost</a> algorithm, which is a computationally inexpensive ML algorithm. AutoTVM can be orders of magnitude faster than actual hardware runtime measurements [<a href="../biblio/#chen2016-d">CG16</a>]. Thus, this allows evaluating orders of magnitude more schedules and discovering a better one. Learning this model requires collecting training data using a dataset of schedules and measured runtime pairs. Transfer learning techniques can be used with new hardware or new TEs to reduce the required amount of training data.</p>
+<p>The selected schedules are compiled using LLVM for CPUs, CUDA, OpenCL, or Metal for GPUs, or another back-end compiler for an accelerator. The compiled code is placed in a library with function pointers, and a higher-level program allocates input and output buffers and calls these functions during execution. TVM supports various deployment languages, including C++, Python, and Java.</p>
+<p>The versatile tensor accelerator (VTA) is an open-source accelerator with an open-source microarchitecture and a software stack tightly integrated with TVM that can be prototyped on an FPGA or simulated on a laptop. Thus, VTA can facilitate the experimentation of custom optimizations across various back-end targets.</p>
+<div id="ch09.sec5"></div>
+<h2 id="95-plaidml">9.5 PlaidML</h2>
+<p>PlaidML is an open-source (as of Aug. 2017) compiler stack developed and maintained by then vertex.ai and, as of Aug. 2018, part of Intel. PlaidML consumes a high-level static graph, such as ONNX, or <a href="https://vertexai-plaidml.readthedocs-hosted.com/en/latest/writing_tile_code.html">others</a>, and generates optimized code for various back-end targets. The most matured targets are GPUs and Movidius VPUs.</p>
+<p>The PlaidML framework automatically generates efficient primitives from polyhedral tensor expressions, transforming graph-level operations requested by the graph compiler into optimized device-specific implementations. PlaidML compiles a high-level IR into target-dependent code: The high-level IR is mapped to the Tile IR using the Tile language capable of describing DL expressions. Like TVM's tensor expression, the Tile language is a differentiable DSL that represents mathematical formulas for the tensor expressions, and it is hardware agnostic.</p>
+<p>A general polyhedral model allows for complex data dependencies. However, in a Tile contraction (a reduction operator that merges values across one or more indices), the only data dependency is in the aggregation. Tile only uses commutative and associative aggregation operations, so this dependency is only mildly restrictive. This narrow focus allows Tile's optimization to be more useful than general-purpose polyhedral optimizers.</p>
+<p>The Tile IR lowers to a hardware-agnostic <a href="https://arxiv.org/abs/1903.06498">Stripe IR</a> [<a href="../biblio/#zerrell2019">ZB19</a>]. The Stripe IR is then compiled via a series of hardware targeted optimizations and lowered to a hardware abstraction layer, accelerator runtime, or other hardware-appropriate code.</p>
+<p>The Stripe IR uses hardware descriptions to constrain the optimization space using an affine tensor space. Stripe determines the optimal loop tiling and other loop permutations to reuse data across the memory hierarchy for a specific back-end target. The loop tiling parameters are selected based on hardware descriptors and adjusted via profile-guided optimizations. Stripe then produces an execution schedule for each primitive and inter-primitive data dependencies, including data movement instructions. PlaidML optimizations are also incorporated as an MLIR dialect.</p>
+<div id="ch09.sec6"></div>
+<h2 id="96-glow">9.6 Glow</h2>
+<p><a href="https://github.com/pytorch/glow">Glow</a> (an abbreviation for <strong>G</strong>raph-<strong>low</strong>ering) is a DL compiler stack used for inference and training (the <a href="https://discuss.pytorch.org/t/glow-questions-about-using-glow-for-training/34206/4">inference</a> stack is more mature). The Glow compiler project is maintained by Facebook with <a href="https://github.com/pytorch/glow#partners">committed</a> support from Intel, Cadence, Esperanto, Marvell, Qualcomm, Bitmain, STMicroelectronics, Synposys, and Ceva [<a href="../biblio/#pytorch-glow2020">Fac20</a>].</p>
+<p>Glow is <a href="https://github.com/pytorch/glow/blob/master/docs/IR.md">designed</a> to compile a high-level graph supporting many operators to a low-level graph supporting a small number of linear algebra operators [<a href="../biblio/#pytorch-glowir2018">Fac18</a>]. The compiler passes can be shared across the various hardware targets. A separate hardware back-end compiler then consumes the low-level IR and generates executable code.</p>
+<p>Glow takes as input a model from PyTorch's TorchScript or constructed via the C++ interface and compiles it to a high-level IR graph. Target-independent optimizations, such as automatic-differentiation and quantization to <span class="arithmatex">\(8\)</span>-bit integer if required, are applied to this high-level graph. Note that Glow does not use a polyhedral model as this has a long compilation time, which is not acceptable for JIT.</p>
+<p>Glow compiles the high-level IR to a low-level instruction-based address-only (operands are typed pointers to buffers) IR via two lowerings. The first lowering decomposes the graph operators into convolution nodes and linear algebra operator nodes. For instance, a fully connected layer is transformed into a matrix multiplication node followed by a broadcasted add node (for the bias). Additional optimization passes occur on this mid-level IR. This graph is not SSA and is organized as a sequence of nodes with no control-flow.</p>
+<p>The second lowering transforms the linear algebra nodes into a low-level instruction-based, address-only strongly-typed IR, known as IRGen. These instructions operate on tensors and are referenced by a hardware-independent address. The IRGen compiler passes determine the required memory allocation for these tensors and the possible in-place computations. The goal of this low-level IR is to facilitate optimizations by the back-end compiler.</p>
+<p>The back-end compiler can consume either the mid-level or low-level IR (IRGen). It performs tensorization and code-generation for the specific hardware target. The back-end compiler may implement additional IRs with control-flow for low-level IR instructions, such as convolution.</p>
+<p>Glow provides a CPU reference implementation to verify an accelerator's correct functionality. For CPU, Glow uses the LLVM compiler to optimize and generate code. The low-level IR can be AOT compiled (since the shapes and types of all the tensors are known) into machine code object files. These files are linked to some application with no further dependence on Glow (this is important for environments with limited memory, such as mobile devices). Alternatively, the low-level IR can execute code in JIT mode using a library of precompiled LLVM bitcode linear algebra micro-kernels written in C called <code>libjit</code>.</p>
+<div id="ch09.sec7"></div>
+<h2 id="97-xla">9.7 XLA</h2>
+<p>The Accelerated Linear Algebra (XLA) is a graph compiler developed and maintained by Google. XLA is used with TPUs, CPUs, and GPUs, and can be extended to other back-end targets. XLA is tightly integrated with TensorFlow and also <a href="https://github.com/pytorch/xla">supports</a> PyTorch/Trace and Julia.</p>
+<p>The TensorFlow APIs let the programmer explicitly invoke the XLA compiler on a subset of the TF graph (or the entire graph, if possible). The <a href="https://github.com/tensorflow/tensorflow/tree/master/tensorflow/compiler/tf2xla"><code>tf2xla</code></a> compiler maps the TensorFlow subgraphs to the XLA High-Level Optimizer (HLO) IR. XLA decomposes the XLA HLO ops into basic <a href="https://www.tensorflow.org/xla/operation_semantics">functions</a>, including element-wise ops, specialized NN ops (such as convolution), data layout reshape ops, control-flow ops, and data transfer ops [<a href="../biblio/#tensorflow-xla2020">Goo20g</a>]. Then, XLA fuses ops to reduce memory access overhead [<a href="../biblio/#tensorflow-index2020">Goo20c</a>]. This optimized HLO IR maps to a back-end compiler for target-dependent optimizations and code-generation. XLA uses the LLVM compiler for code-generation on CPUs and GPUs, and a TPU compiler for TPUs. While XLA is a JIT compiler, it also provides AOT executable codegen compilation for some back-end tagets, <a href="https://www.tensorflow.org/xla">such as</a> CPUs.</p>
+<p>In practice, XLA works well for a defined set of <a href="https://github.com/tensorflow/tensorflow/tree/master/tensorflow/compiler/tf2xla/kernels">primitives</a>, but supporting custom primitives <a href="https://www.youtube.com/watch?v=qzljG6DKgic&amp;t=22m20s">can be a challenge</a> [<a href="../biblio/#shpeisman2019">SL19</a>]. This limits the adoption of XLA in the research community, where experimentation with new operators is common. In addition, XLA <a href="https://medium.com/tensorflow/pushing-the-limits-of-gpu-performance-with-xla-53559db8e473">cannot</a> compile tensors with dynamic shapes [<a href="../biblio/#boyd2018">BCD+18</a>].</p>
+<div id="ch09.sec8"></div>
+<h2 id="98-mlir">9.8 MLIR</h2>
+<p>One effort to improve the TensorFlow infrastructure and reduce the duplication of optimizations is the Multi-Level IR (<a href="http://github.com/tensorflow/mlir/">MLIR</a>). It was released in April 2019 by Google as a TensorFlow project, and later <a href="https://github.com/llvm/llvm-project/tree/master/mlir">adopted</a> as an LLVM project. While the initial front-end framework is TensorFlow, other frameworks can use it.</p>
+<p>MLIR is a flexible ML SSA-based, typed-language, multilevel IR compiler infrastructure. MLIR is not a compiler but a compiler infrastructure; standard optimizations can be shared across the various levels of abstractions. It borrows many ideas from LLVM IR, both designed by Chris Lattner and other contributors, and has a library of optimization and compiler utilities. It has a flexible type system and supports dynamic tensor shapes and ranks. MLIR enables optimizations across various levels of abstractions from high-level optimizations with better control-flow representation to low-level compilers and executors that generate target machine code. The MLIR structure resembles the LLVM structure with modules, functions, blocks, and operations (note that in LLVM parlance, these are called instructions rather than operations, and in TVM parlance are called expressions). MLIR operators are the basic unit of MLIR code. Unlike LLVM, in MLIR the optimization passes are implicitly multithreaded.</p>
+<p>MLIR IRs are called dialects. A dialect has a defined set of operations with input and output types and can express different levels of abstraction. <a href="https://github.com/tensorflow/tensorflow/blob/master/tensorflow/compiler/mlir/tensorflow/ir/tf_executor_ops.td">Examples</a> of dialects <a href="https://mlir.llvm.org/docs/Dialects/">are</a> the TensorFlow IR, XLA HLO, TFLite, Affine, and LLVM IR, and exclusively for GPUs: <a href="https://docs.nvidia.com/cuda/nvvm-ir-spec/index.html">NVVM</a>, <a href="https://www.khronos.org/spir/">SPIR-V</a>, and <a href="https://rocm.github.io">ROCm</a>. An affine dialect is a <a href="https://github.com/llvm/llvm-project/blob/master/mlir/docs/Rationale/RationaleSimplifiedPolyhedralForm.md">simplified</a> polyhedral model with <code>for</code> loops and <code>if</code> control structure ops [<a href="../biblio/#polyhedral2020">Llv20</a>]. A dialect provides invariants on the operators and a canonical representation. This canonicalization simplifies pattern-matching, verification, rewriting, and <a href="https://github.com/tensorflow/mlir/blob/master/include/mlir/Transforms/DialectConversion.h">conversion</a> to other dialects. Optimizations can be shared across dialects. Also, MLIR allows custom operators for a particular dialect.</p>
+<p>Expressions can be written at multiple levels of abstraction. The high-level graph optimizations can use the TF dialect. The tensor optimizations (such as matrix multiplications and fusion) can use the XLA dialect, and the LLVM code-generation can use the LLVM dialect on supported hardware, all with the same infrastructure.</p>
+<p>TensorFlow is <a href="https://ai.google/research/pubs/pub48051">gradually</a> porting graph transformations to MLIR and unifying the interfaces to the back-end code generators [<a href="../biblio/#larsen2019">LS19</a>]. Other hardware libraries or hardware vendor IRs can consume the MLIR and generate code for their respective back-end targets.</p>
+<div id="ch09.sec9"></div>
+<h2 id="99-others">9.9 Others</h2>
+<p>Other notable compilers include the following:</p>
+<p><strong><a href="https://dl.acm.org/doi/10.1145/2491956.2462176">Halide</a></strong> was developed as a DSL for image processing [<a href="../biblio/#ragan-kelley2013">RBA+13</a>]. Key Halide concepts can extend to DL compilers. TVM borrows many ideas from Halide, including decoupling the tensor expression from the schedule and defining the scheduling space.</p>
+<p><strong><a href="https://dl.acm.org/citation.cfm?id=3211354">Diesel</a></strong> was developed by Nvidia to generate efficient code for GPUs [<a href="../biblio/#elango2018">ERR+18</a>]. Diesels maps a DSL to a high-level graph and then lowers the graph to a Polyhedral IR. Optimization passes are applied to tile a loop for efficient parallelism between threads, warps, blocks, and SM. Diesel then generates CUDA code for various Nvidia GPU back-end architectures.</p>
+<p><strong><a href="https://www.intel.ai/ngraph/">nGraph</a></strong> is an open-source C++ library for high-level compilation designed by Intel but no longer actively maintained. nGraph consumes a TensorFlow or ONNX computation graph, maps the subgraphs supported by nGraph to an nGraph IR (for TF models, the TF runtime handles nonsupported nodes), and performs high-level optimization passes, as shown in Figure <a href="../ch09/#fig:ngraph">9.3</a> [<a href="../biblio/#straw2019">SPE19</a>].</p>
+<div id="fig:ngraph"></div>
+<p><img alt="" src="../figures/ch09-03.png" />
+<em>Figure 9.3:</em> Graph-level optimizations used by nGraph (and typical in DL compilers). Various nodes are fused to reduce memory access overhead. Based on [<a href="../biblio/#straw2019">SPE19</a>].</p>
+<p><strong><a href="https://arxiv.org/abs/1802.04730">Tensor Comprehension</a> (TC)</strong> was developed by Facebook AI Lab and released in early 2018 [<a href="../biblio/#vasilache2018">VZT+18</a>]. Facebook appears to be prioritizing the Glow graph compiler. TC defines a scheduling space for GPUs using polyhedral methods and uses a JIT compiler to search for an efficient schedule. TC does not use ML to facilitate the selection of a schedule.</p>
+<p><strong>Tensor Algebra Compiler (<a href="http://tensor-compiler.org/kjolstad-oopsla17-tensor-compiler.pdf">taco</a>)</strong> generates sparse tensor operators on a CPU [<a href="../biblio/#kjolstad2017">KKC+17</a>].</p>
+<p><strong><a href="https://openreview.net/pdf?id=ryG6xZ-RZ">DLVM</a></strong> has full control-flow and can be used for graph-level optimization [<a href="../biblio/#wei2018">WSA18</a>].</p>
+<p><strong>WELD</strong> is a DSL for data processing.</p>
+<p>In this chapter, we reviewed the importance of DL compilers to support the execution of models across diverse hardware targets. We detailed the DL compilers and software libraries used by hyperscalers and hardware vendors. The most popular frameworks (with built-in compilers) are TensorFlow and PyTorch, and the most popular compilers are TVM and XLA, with MLIR providing a compiler infrastructure. In the next chapter, we provide concluding remarks and discuss some of the future challenges and opportunities to advance DL.</p>
+
+  <br>
+    
+
+    
+    
+      
+    
+
+  <div class="row wm-article-nav-buttons" role="navigation" aria-label="navigation">
+    
+    <div class="wm-article-nav pull-right">
+      <a href="../ch10/" class="btn btn-xs btn-default pull-right">
+        Next
+        <i class="fa fa-chevron-right" aria-hidden="true"></i>
+      </a>
+      <a href="../ch10/" class="btn btn-xs btn-link">
+        Chapter 10: Opportunities and Challenges
+      </a>
+    </div>
+    
+    <div class="wm-article-nav">
+      <a href="../ch08/" class="btn btn-xs btn-default pull-left">
+        <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        Previous</a><a href="../ch08/" class="btn btn-xs btn-link">
+        Chapter 8: Compiler Optimizations
+      </a>
+    </div>
+    
+  </div>
+
+    <br>
+</div>
+
+<footer class="container-fluid wm-page-content">
+  <p>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a> using <a href="https://github.com/gristlabs/mkdocs-windmill">Windmill</a> theme by Grist Labs.</p>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  
+  
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    
+    
+    <link rel="shortcut icon" href="../img/favicon.ico">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+    <title>Preface - Deep Learning Systems: Algorithms, Compilers, and Processors for Large-Scale Production</title>
+    <link href="../css/bootstrap-3.3.7.min.css" rel="stylesheet">
+    <link href="../css/font-awesome-4.7.0.css" rel="stylesheet">
+    <link href="../css/base.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/highlight.css">
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+    <![endif]-->
+
+    <script src="../js/jquery-3.2.1.min.js"></script>
+    <script src="../js/bootstrap-3.3.7.min.js"></script>
+    <script src="../js/highlight.pack.js"></script>
+    
+    <base target="_top">
+    <script>
+      var base_url = '..';
+      var is_top_frame = false;
+        
+        var pageToc = [
+          {title: "Preface", url: "#_top", children: [
+          ]},
+        ];
+
+    </script>
+    <script src="../js/base.js"></script>
+      <script src="../javascripts/config.js"></script>
+      <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script> 
+</head>
+
+<body>
+<script>
+if (is_top_frame) { $('body').addClass('wm-top-page'); }
+</script>
+
+
+
+<div class="container-fluid wm-page-content">
+  <a name="_top"></a>
+    
+
+    
+    
+      
+    
+
+  <div class="row wm-article-nav-buttons" role="navigation" aria-label="navigation">
+    
+    <div class="wm-article-nav pull-right">
+      <a href="../acknowledgments/" class="btn btn-xs btn-default pull-right">
+        Next
+        <i class="fa fa-chevron-right" aria-hidden="true"></i>
+      </a>
+      <a href="../acknowledgments/" class="btn btn-xs btn-link">
+        Acknowledgments
+      </a>
+    </div>
+    
+    <div class="wm-article-nav">
+      <a href="../abstract/" class="btn btn-xs btn-default pull-left">
+        <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        Previous</a><a href="../abstract/" class="btn btn-xs btn-link">
+        Abstract
+      </a>
+    </div>
+    
+  </div>
+
+    
+
+    <h2 id="preface">Preface</h2>
+<p>Many concepts throughout the book are interdependent and often introduced iteratively with a reference to the section covering the concept in detail. If you are new to this field, read the introductory chapter in its entirety and each chapter's introductory section and concluding paragraph to capture some of the key takeaways. Then, go back and read each chapter in its entirety. A background in linear algebra, calculus, programming, compilers, and computer architecture may be helpful for some parts but not required. The book is organized as follow:</p>
+<p>Chapter <a href="../ch01/#ch01">1</a> starts with an introduction to essential concepts detailed throughout the book. We review the history and applications of deep learning (DL). We discuss various types of topologies employed in industry and academia across multiple domains. We also provide an example of training a simple DL model and introduce some of the architectural design considerations.</p>
+<p>Chapter <a href="../ch02/#ch02">2</a> covers the building blocks of models used in production. We describe which of these building blocks are compute bound and which are memory bandwidth bound.</p>
+<p>Chapter <a href="../ch03/#ch03">3</a> covers the applications benefiting the most from DL, the prevalent models employed in industry, as well as academic trends likely to be adopted commercially over the next few years. We review recommender system, computer vision, natural language processing (NLP), and reinforcement learning (RL) models.</p>
+<p>Chapter <a href="../ch04/#ch04">4</a> covers the training process domain experts should follow to adopt DL algorithms successfully. We review topology design considerations employed by data scientists, such as weight initialization, objective functions, optimization algorithms, training with a limited dataset, dealing with data imbalances, and training with limited memory. We also describe the mathematical details behind the backpropagation algorithm to train models.</p>
+<p>Chapter <a href="../ch05/#ch05">5</a> covers distributed algorithms adopted in data centers and edge devices (known as federated learning). We discuss the progress and challenges with data and model parallelism. We also review communication primitives and AllReduce algorithms.</p>
+<p>Chapter <a href="../ch06/#ch06">6</a> covers the lower numerical formats used in production and academia. These formats can provide computational performance advantages over the standard 32-bit single-precision floating-point, sometimes at the expense of lower statistical performance (accuracy). We also discuss pruning and compression techniques that further reduce the memory footprint.</p>
+<p>Chapter <a href="../ch07/#ch07">7</a> covers hardware architectural designs. We review the basics of computer architecture, reasons for the slower growth in computational power, and ways to partially mitigate this slowdown. We explain the roofline model and the important hardware characteristics for serving and multinode training. We also discuss CPUs, GPUs, CRGAs, FPGAs, DSPs, and ASICs, their advantages and disadvantages, and the prominent DL processors and platforms available in the market or in development.</p>
+<p>Chapter <a href="../ch08/#ch08">8</a> covers high-level languages and compilers. We review language types and explain the basics of the compilation process. We discuss front-end compilers that transform a program to an LLVM internal representation (IR) and the LLVM back-end compiler. We also describe the standard compiler optimizations passes for DL workloads.</p>
+<p>Chapter <a href="../ch09/#ch09">9</a> covers the frameworks and DL compilers. We review in detail the TensorFlow and PyTorch frameworks and discuss various DL compilers in development.</p>
+<p>Chapter <a href="../ch10/#ch10">10</a> concludes with a look at future opportunities and challenges. We discuss the opportunities to use machine learning algorithms to advance various parts of the DL system stack. We discuss some challenges, such as security, interpretability, and the social impact of these systems. We also offer some concluding remarks.</p>
+
+  <br>
+    
+
+    
+    
+      
+    
+
+  <div class="row wm-article-nav-buttons" role="navigation" aria-label="navigation">
+    
+    <div class="wm-article-nav pull-right">
+      <a href="../acknowledgments/" class="btn btn-xs btn-default pull-right">
+        Next
+        <i class="fa fa-chevron-right" aria-hidden="true"></i>
+      </a>
+      <a href="../acknowledgments/" class="btn btn-xs btn-link">
+        Acknowledgments
+      </a>
+    </div>
+    
+    <div class="wm-article-nav">
+      <a href="../abstract/" class="btn btn-xs btn-default pull-left">
+        <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        Previous</a><a href="../abstract/" class="btn btn-xs btn-link">
+        Abstract
+      </a>
+    </div>
+    
+  </div>
+
+    <br>
+</div>
+
+<footer class="container-fluid wm-page-content">
+  <p>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a> using <a href="https://github.com/gristlabs/mkdocs-windmill">Windmill</a> theme by Grist Labs.</p>
+</footer>
+
+</body>
+</html>

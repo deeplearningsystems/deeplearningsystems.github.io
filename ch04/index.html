@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  
+  
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    
+    
+    <link rel="shortcut icon" href="../img/favicon.ico">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+    <title>Chapter 4: Training a Model - Deep Learning Systems: Algorithms, Compilers, and Processors for Large-Scale Production</title>
+    <link href="../css/bootstrap-3.3.7.min.css" rel="stylesheet">
+    <link href="../css/font-awesome-4.7.0.css" rel="stylesheet">
+    <link href="../css/base.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/highlight.css">
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+    <![endif]-->
+
+    <script src="../js/jquery-3.2.1.min.js"></script>
+    <script src="../js/bootstrap-3.3.7.min.js"></script>
+    <script src="../js/highlight.pack.js"></script>
+    
+    <base target="_top">
+    <script>
+      var base_url = '..';
+      var is_top_frame = false;
+        
+        var pageToc = [
+          {title: "Chapter 4: Training a Model", url: "#_top", children: [
+              {title: "4.1 Generalizing from Training to Production Datasets", url: "#41-generalizing-from-training-to-production-datasets" },
+              {title: "4.2 Weight Initialization", url: "#42-weight-initialization" },
+              {title: "4.3 Optimization Algorithms: Minimizing the Cost", url: "#43-optimization-algorithms-minimizing-the-cost" },
+              {title: "4.4 Backpropagation", url: "#44-backpropagation" },
+              {title: "4.5 Training Techniques", url: "#45-training-techniques" },
+              {title: "4.6 Transfer Learning Via Fine-Tuning", url: "#46-transfer-learning-via-fine-tuning" },
+              {title: "4.7 Training with Limited Memory", url: "#47-training-with-limited-memory" },
+          ]},
+        ];
+
+    </script>
+    <script src="../js/base.js"></script>
+      <script src="../javascripts/config.js"></script>
+      <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script> 
+</head>
+
+<body>
+<script>
+if (is_top_frame) { $('body').addClass('wm-top-page'); }
+</script>
+
+
+
+<div class="container-fluid wm-page-content">
+  <a name="_top"></a>
+    
+
+    
+    
+      
+    
+
+  <div class="row wm-article-nav-buttons" role="navigation" aria-label="navigation">
+    
+    <div class="wm-article-nav pull-right">
+      <a href="../ch05/" class="btn btn-xs btn-default pull-right">
+        Next
+        <i class="fa fa-chevron-right" aria-hidden="true"></i>
+      </a>
+      <a href="../ch05/" class="btn btn-xs btn-link">
+        Chapter 5: Distributed Training
+      </a>
+    </div>
+    
+    <div class="wm-article-nav">
+      <a href="../ch03/" class="btn btn-xs btn-default pull-left">
+        <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        Previous</a><a href="../ch03/" class="btn btn-xs btn-link">
+        Chapter 3: Models and Applications
+      </a>
+    </div>
+    
+  </div>
+
+    
+
+    <div id="ch4"></div>
+<h1 id="chapter-4-training-a-model">Chapter 4: Training a Model</h1>
+<p>Training a model to achieve high statistical performance within a computational and power budget requires several design considerations. These include defining a topology, preparing the dataset, properly initializing the model weights, selecting an optimization algorithm and objective function, reducing the model size, and evaluating the trained model. The training process can be computational and memory intensive, and there are techniques discussed in this and the next two chapters to reduce the training time and mitigate memory bottlenecks.</p>
+<p>In Section <a href="../ch01/#ch01.sec6">1.6</a>, we introduced the training steps. The training stops when the validation error is either less than some threshold or does not continue to decrease after several iterations. The validation error is computed every <span class="arithmatex">\(n\)</span> training iterations, where <span class="arithmatex">\(n\)</span> is chosen by the data scientist. It is used as a metric of how the model will perform when it is deployed.</p>
+<p>During the backpropagation step, the computed gradients provide a measurement of the contribution of each weight to the cost. The terms cost, loss, penalty, error, and objective function, are sometimes used interchangeably. In this book, <em>loss</em> represents a metric of difference between the expected output and actual output for one data sample, and <em>cost</em>, error, and objective function synonymously represent the sum of the losses for a batch of samples. Examples of common objective functions are the cross-entropy error (discussed in Section <a href="../ch04/#ch04.sec4">4.4</a>) and the mean square error (<a href="https://en.wikipedia.org/wiki/Mean_squared_error">MSE</a>) for classification and regression tasks, respectively.</p>
+<p>In the remainder of this chapter, we detail how to train a model to achieve low training and low test error. We review techniques to improve the performance on each of the training steps outlined in Section <a href="../ch01/#ch01.sec6">1.6</a>. We provide the methodologies that experienced data scientists use in industry to deal with unbalanced datasets, design new topologies, resolve training bugs, and leverage existing pre-trained models. We also discuss methods to reduce memory bottlenecks. Distributed training algorithms to reduce the training time are discussed in Chapter <a href="../ch06/#ch06">6</a>. A review of the notation introduced in Section <a href="../ch01/#ch01.sec10">1.10</a> can help understand the equations presented in this chapter.</p>
+<div id="ch04.sec1"></div>
+<h2 id="41-generalizing-from-training-to-production-datasets">4.1 Generalizing from Training to Production Datasets</h2>
+<p>A well-designed and trained model has good performance on production data not used during training. That is, the model generalizes from the training dataset to the production or test dataset. Specifically, the model has low error rates in both the training and test datasets. On the contrary, a model with high test error rates is unreliable. In this section, we describe the source of high test error rates, specifically, underfitting, overfitting, and sharp minima, and how to reduce this error. The red dot represents the model's prediction.</p>
+<p>Underfitting occurs when the model is too small because it has too little learning capacity and cannot properly learn the general characteristics of the data. The symptoms of underfitting are high training error and high test error. The best technique to mitigate underfitting is to use a more complex model. In DL, this means increasing the topology's representative capacity by adding more layers and more weights.</p>
+<p>Overfitting occurs when a model has too much learning capacity and learns to fit the noise in the training data samples or other characteristics unique to the training set. Overfitting happens when using a prodigious model with insufficient training samples. The symptoms of overfitting are low training error and high test error. Figure <a href="../ch04/#fig:overfit">4.1</a> illustrates overfitting with a toy 1D example using linear regression, a simple ML algorithm. Figure <a href="../ch04/#fig:overfit">4.1</a>a shows four training samples (the blue dots) and one validation sample (the green dot) not used during training. The <span class="arithmatex">\(x\)</span>-axis is one feature, such as house size, and the <span class="arithmatex">\(y\)</span>-axis is the label, such as house price. A polynomial function of third or higher-order can perfectly pass through the four training data points. The illustration uses a fourth-order polynomial for simple visualization. Figure <a href="../ch04/#fig:overfit">4.1</a>b shows the model has no training error but has a higher validation error (the squared distance between the red and green dots). A simpler first-order (affine) function does not perfectly pass through all the training data points but has low validation error, as shown in Figure <a href="../ch04/#fig:overfit">4.1</a>c. The red dot shows what each model predicts on the validation sample, and the green dot is the ground truth for that sample. The complex model overfits the training samples; it has zero training error but high validation error compared to the simpler model. Therefore, in this example, the simpler model is preferred.</p>
+<div id="fig:overfit"></div>
+<p><img alt="" src="../figures/ch04-01.png" />
+<em>Figure 4.1:</em> (a) Four training samples (blue dots) and one validation sample (green dot). (b) A fourth-order polynomial function has zero training error but high validation error. (c) A simpler first-order polynomial function has low validation error. The red dot represents the model's prediction.</p>
+<p>Figure <a href="../ch04/#fig:complexity-error">4.2</a> illustrates what happens to the training and validation error as the model grows in complexity. While the training error decreases with more complexity, the validation error first decreases and then increases. A model with complexity left of the dashed line is underfitting, and a model with complexity right of the dashed line is overfitting. The sweet spot is right at the dashed line, where the model has the lowest validation error. The model is complex enough to learn the characteristics of the data to avoid underfitting but simple enough to avoid overfitting.</p>
+<div id="fig:complexity-error"></div>
+<p><img alt="" src="../figures/ch04-02.png" />
+<em>Figure 4.2:</em> The ideal level of model complexity is where the validation error is the lowest.</p>
+<p>The validation error is much more important than the training error because it represents the expected error when the model deploys in production. In ML theory, minimizing these errors is known as the <a href="https://en.wikipedia.org/wiki/Bias%E2%80%93variance_trade-off">bias-variance tradeoff</a>. A high training error indicates high bias or underfitting. A high validation error and low training error indicates high variance or overfitting. It is always critical to determine the source of poor performance (overfitting or underfitting) before prescribing a solution.</p>
+<p>An interesting and counterintuitive phenomenon unique to various DL topologies is the <a href="https://openreview.net/pdf?id=B1g5sA4twr">deep double descent</a>, illustrated in Figure <a href="../ch04/#fig:double-descent">4.3</a> [<a href="../biblio/#nakkiran2020">NKB+20</a>]. As the topology complexity increases (that is, as the model grows in depth), the validation error first follows the expected trajectory of decreasing and then increasing, but then it begins to decrease again. That is, increasing the size of the topology can lower the test error in some scenarios. The exact reason is not well understood as complex models should result in overfitting. A tentative (hand-wavy) reason is that very large topologies can explore a larger solution space leading to superior solutions. Understanding this phenomenon and the impact on the recommended training techniques is ongoing research. Most practitioners safely ignore this phenomenon or are not aware of it.</p>
+<div id="fig:double-descent"></div>
+<p><img alt="" src="../figures/ch04-03.png" />
+<em>Figure 4.3:</em> An illustration of the deep double descent observed in some DL topologies; as the complexity increases, the validation error decreases and then increases as expected, but then it begins to decrease again. Based on [<a href="../biblio/#nakkiran2020">NKB+20</a>].</p>
+<p>Another source of poor generalization may be <a href="https://www.mitpressjournals.org/doi/10.1162/neco.1997.9.1.1">sharp minima</a> [<a href="../biblio/#hochreiter1997">HS97</a>]. This hypothesis is based on empirical evidence. Figure <a href="../ch04/#fig:flat-sharp">4.4</a> illustrates the intuition with a toy 1D example using only one weight or feature (the <span class="arithmatex">\(x\)</span>-axis). Training involves iteratively updating the model and moving to an area in the solution space with lower training error. The training cost function (solid blue line) is similar but slightly different than the testing cost function (dotted green line). This difference is because the test samples are similar but not identical to the training samples. In this example, the flat minimum solution and the sharp minimum solution have the same training error but different test errors. These errors are represented by <span class="arithmatex">\(J(w)\)</span> along the <span class="arithmatex">\(y\)</span>-axis. The flat minimum solution has a low test error, while the sharp minimum solution has a high test error (the green dot). A measurement of flatness is the trace of the Hessian; a small trace indicates a flat minimum [<a href="../biblio/#dong2019-b">DYC+19</a>].</p>
+<div id="fig:flat-sharp"></div>
+<p><img alt="" src="../figures/ch04-04.png" />
+<em>Figure 4.4:</em> In this toy example, the cost function with respect to the test dataset is slightly shifted from the cost function with respect to the training dataset. The sharp minimum solution has a high test error. The flat minimum has a small test error. Based on [<a href="../biblio/#keskar2017">KMN+17</a>].</p>
+<p>While a flat minimum generalizes better to unseen data, a sharp minimum does not necessarily <a href="https://arxiv.org/pdf/1804.07612.pdf">indicate</a> overfitting, and a flat minimum does not necessarily indicate low validation error [<a href="../biblio/#masters2018">ML18</a>]. Also, the functions resulting in a flat minimum can be altered to result in a sharp minimum without affecting the validation error, <a href="https://arxiv.org/abs/1703.04933">demonstrating</a> the hypothesis above does not always hold [<a href="../biblio/#dinh2017">DPB+17</a>].</p>
+<p>There are various techniques to improve generalization, often by simplifying (regularizing) the model. The most common ones are as follows:</p>
+<p><strong>Larger datasets</strong> is the best technique to avoid overfitting. The toy example above only used four samples to train the fourth-order polynomial. Adding more samples while keeping the same model complexity (fourth-order polynomial) results in a more affine-like function that better generalizes to data not in the training set. OpenAI <a href="https://arxiv.org/abs/2001.08361">recommends</a> for NLP models increasing the number of parameters by <span class="arithmatex">\(2.55\times\)</span> whenever the dataset doubles to improve learning capacity and avoid over/underfitting [<a href="../biblio/#kaplan2020">KMH+20</a>].</p>
+<p><strong>Weight decay</strong> (also known as <strong><span class="arithmatex">\(L_2\)</span>-regularization</strong>) penalizes the magnitude of the weights and reduces overfitting. In the fourth-order polynomial example above, this would penalize the magnitude of the coefficients and result in a more affine-like function. The objective function incorporates the weight decay by adding a penalty term: </p>
+<div class="arithmatex">\[\text{new cost} = \text{cost} + \lambda ||\mathbf{w}||_2^2,\]</div>
+<p>where <span class="arithmatex">\(\lambda \geq 0\)</span> is the regularization factor and <span class="arithmatex">\(\mathbf{w}\)</span> is the model weights (the polynomial coefficients in the regression example above). The bias weight does not have a multiplicative interaction with the activations; therefore, it is not regularized. Note that <span class="arithmatex">\(L_1\)</span> (rather than <span class="arithmatex">\(L_2\)</span>, as shown above) regularization is less common.</p>
+<p><strong>Smaller batches</strong> <a href="https://arxiv.org/abs/1804.07612">improves</a> generalization [<a href="../biblio/#masters2018">ML18</a>]. A training iteration involves processing a batch of data. Larger batches can have computational advantages (they have higher data reuse), but often large batches result in sharp minima. The ideal is a medium size batch where the model converges to a flat minimum and has high compute utilization. Finding an adequate batch size requires experimentation.</p>
+<p><strong>Better optimizer</strong> that finds a solution with a lower validation error. In Section <a href="../ch04/#ch04.sec3">4.3</a>, we discuss the gradient descent optimizer and others less prone to sharp minima solutions, such as LARS, LAMB, and RangerLARS.</p>
+<p><strong>Topology pruning</strong> means forcing some of the smaller weights to zero or removing parts of the model. In Section <a href="../ch06/#ch06.sec3">6.3</a>, we discuss pruning in more detail.</p>
+<p><strong><a href="https://arxiv.org/abs/1512.00567">Label-smoothing regularization</a> (LSR)</strong> modifies the ground-truth one-hot vector by adding a small <span class="arithmatex">\(\epsilon /M\)</span> value to all the zero entries, where <span class="arithmatex">\(M\)</span> is the number of classes and <span class="arithmatex">\(\epsilon\)</span> is a small value, such as <span class="arithmatex">\(\epsilon=0.1\)</span> [<a href="../biblio/#szegedy2015">SVI+15</a>]. The "1" entry in the one-hot vector is changed to <span class="arithmatex">\(1-\epsilon\)</span> to maintain a valid probability distribution. Reducing the difference between the largest logit and all others reduces the confidence of a model and results in better adaptation to non-training samples.</p>
+<p><strong>Early stopping</strong> means the training stops when the validation error begins to increase. Similarly, the model is evaluated on the validation dataset and saved every <span class="arithmatex">\(n\)</span> training iterations, and the model with the lowest validation error is selected. There <a href="https://autonomio.github.io/docs_talos/#early-stopping">are</a> mixed <a href="https://www.coursera.org/lecture/deep-neural-network/other-regularization-methods-Pa53F">opinions</a> on using early stopping. Regularization via weight decay without using early stopping can lead to better results when the computational resources are available to experiment with multiple weight penalties. In practice, early stopping is a simple and effective technique to reduce overfitting and commonly used. Note, somewhat related, that Hoffer et al. <a href="https://arxiv.org/abs/1705.08741">demonstrated</a> better generalization with additional training cycles when the validation error has plateaued, but the training error continues to decrease [<a href="../biblio/#hoffer2017">HHS17</a>].</p>
+<p><strong>Model ensemble</strong> is where an ensemble (group) of models is trained for a particular task. During inference, a combination of the models' predictions is used, such as the average. Combining the predictions reduces the impact of each model overfitting. More formally, model ensemble reduces the variance of the validation error.</p>
+<p>In addition, normalization and dropout (discussed in Sections <a href="../ch02/#ch02.sec6">2.6</a> and <a href="../ch02/#ch02.sec9">2.9</a>) are other forms of regularization which reduce overfitting.</p>
+<div id="ch04.sec2"></div>
+<h2 id="42-weight-initialization">4.2 Weight Initialization</h2>
+<p>Training a model is the process of learning the weight values for a topology for a particular task. The initialization of the model weights at the start of training can significantly impact the learning (training convergence), particularly for deeper networks.</p>
+<p>Initializing all the weights to the same value results in the weights having the same update and therefore prevents learning. The weights (including the biases) are typically sampled from random distributions. They are initialized such that the distribution of the <em>activations</em> has unit variance across a layer. This initialization reduces the likelihood of having exploding or diminishing gradients during the backpropagation step when multiplying gradients across several layers.</p>
+<p>A simple initialization approach is to sample from a zero-mean normal (Gaussian) distribution or from a uniform distribution using a different standard deviation for each layer. A common choice when the activation function is ReLU is the <a href="https://arxiv.org/abs/1502.01852">Kaiming initialization</a>: the weights are sampled from a normal distribution with standard deviation <span class="arithmatex">\(\sigma=\sqrt{2/D^{(l)}}\)</span>, where <span class="arithmatex">\(D^{(l)}\)</span> is the number of units in Layer <span class="arithmatex">\(l\)</span> [<a href="../biblio/#he2015-b">HZR+15</a>]. A <a href="https://www.tensorflow.org/api_docs/python/tf/random/truncated_normal">truncated normal</a> (the sides of the distribution are truncated) is recommended to prevent initializing the weights with large magnitudes. Kaiming initialization allows the training of much deeper networks. Before this technique was developed, the authors of the well-known VGG paper meticulously initialized the layers of the larger VGG networks in various steps. With Kaiming's initialization, this is no longer needed.</p>
+<p>For sigmoid or hyperbolic tangent layers, the <a href="http://proceedings.mlr.press/v9/glorot10a.html">Xavier initialization</a> is preferred [<a href="../biblio/#glorot2010">GB10</a>]. The weights at Layer <span class="arithmatex">\(l\)</span> are sampled from a uniform distribution <span class="arithmatex">\(\mathcal{U}(-k,k)\)</span> where </p>
+<div class="arithmatex">\[k=\sqrt{\frac{6}{D^{(l)} + D^{(l+1)}}}.\]</div>
+<p>These initialization techniques <a href="https://openreview.net/forum?id=H1lma24tPB">can be adapted</a> to train hypernetworks, meta-NNs that generate weights for a primary NN [<a href="../biblio/#chang2020">CFL20</a>].</p>
+<div id="ch04.sec2.sub1"></div>
+<h3 id="421-bias-initialization">4.2.1 Bias Initialization</h3>
+<p>It is common to initialize the bias weights to zero. Exceptions are as follows:</p>
+<ul>
+<li>The bias of the last layer in a model for binary classification trained with imbalanced datasets (far more negative than positive samples) <a href="https://karpathy.github.io/2019/04/25/recipe/">should be initialized to</a> [<a href="../biblio/#karpathy2019">Kar19</a>] </li>
+</ul>
+<div class="arithmatex">\[\log_e \frac{\text{number of positive samples}}{\text{number of negative samples}}.\]</div>
+<ul>
+<li>
+<p>The bias of the last layer in a regression model trained with imbalanced datasets should be initialized to the expected mean output value. Alternatively, the data targets should be normalized, and the bias initialized to <span class="arithmatex">\(0\)</span>.</p>
+</li>
+<li>
+<p>The bias of the LSTM <a href="https://ieeexplore.ieee.org/document/818041">forget gate</a> should be <a href="https://dl.acm.org/doi/10.5555/3045118.3045367">initialized</a> to <span class="arithmatex">\(1\)</span> to prevent the LSTM unit from forgetting at the start of training. The model needs some training cycles to learn to forget [<a href="../biblio/#gers1999">GSC99</a>; <a href="../biblio/#jozefowicz2015">JZS15</a>].</p>
+</li>
+<li>
+<p>The bias of the LSTM input and output gates <a href="https://dl.acm.org/doi/10.1162/neco.1997.9.8.1735">should be initialized</a> to <span class="arithmatex">\(-1\)</span> to push the initial memory cell activations toward zero [<a href="../biblio/#hochreiter1997-b">HS97</a>].</p>
+</li>
+<li>
+<p>The bias in a ReLU layer may be initialized to a <a href="https://arxiv.org/abs/1903.11482">positive value</a> to reduce the number of zero activations that may cause the dying ReLU phenomenon [<a href="../biblio/#steinwart2019">Ste19</a>]. However, the benefits have not been extensively explored.</p>
+</li>
+</ul>
+<div id="ch04.sec3"></div>
+<h2 id="43-optimization-algorithms-minimizing-the-cost">4.3 Optimization Algorithms: Minimizing the Cost</h2>
+<p>In supervised DL, the input data is forward-propagated through the model, and the output is compared to the expected output (the ground truth) to compute a penalty or cost. For a given topology and dataset, there is a cost (an objective function) landscape, that is, a cost associated with all the possible weight values. The goal of training a topology is to find a set of weights (a model) that has a low cost.</p>
+<p>Optimization algorithms iteratively update the weights to reduce the cost. A useful optimizer efficiently searches the high-dimensional solution space and converges to a low cost, flat minimum. In DL, the weight (parameter) space typically ranges from a few million to hundreds of billions of dimensions, and it has a <a href="https://arxiv.org/abs/1802.08770">roughly convex</a> objective function with walls or barriers on the valley floor [<a href="../biblio/#xing2018">XAT+18</a>]. The valley floor has several local minima. A given topology converges to different local minima in each training run due to the stochasticity in training. Interestingly, different minima solutions typically have comparable statistical performance (cost).</p>
+<p>The most common optimizers used in production are Stochastic Gradient Descent with Momentum (SGDM) and Adam, sometimes with a preference for computer vision and NLP models, respectively. Before introducing them, we first introduce gradient descent and stochastic gradient descent (SGD) to motivate the utility of SGDM and Adam. We also discuss LARS and LAMB, which ushered the use of large-batches. These optimizers use the gradients computed during the backpropagation step to update the model weights. In the next section, we detail how to compute the gradients. Orthogonal techniques, such as SWA and LookAhead described below, can be used in conjunction with the optimizer to find a better minimum.</p>
+<p>In gradient descent (GD), also known as <em>steepest descent</em>, all the data samples in the dataset are used to compute the objective function. The weights are updated by moving in the direction opposite to the gradient, that is, moving toward the local minimum. The objective function <span class="arithmatex">\(J(\mathbf{w})\)</span> is computed using the sum of all the losses across the dataset with <span class="arithmatex">\(N\)</span> samples. The set of weights are updated as follows: </p>
+<div class="arithmatex">\[\begin{aligned} J(\mathbf{w}) &amp;= \sum_{n=0}^{N-1} \mathit{loss} \left( f_\mathbf{w} \left(\mathbf{x}^{[n]}\right), \mathbf{y}^{[n]} \right) \\[3pt] \mathbf{g} &amp;= \frac{dJ(\mathbf{w})}{d\mathbf{w}} = \nabla_\mathbf{w} J(\mathbf{w}) \\[3pt] \mathbf{w} &amp; := \mathbf{w} - \alpha\cdot \mathbf{g},\end{aligned}\]</div>
+<p>where <span class="arithmatex">\(\mathbf{w}\)</span> represents all the weights in the model and <span class="arithmatex">\(\alpha\)</span> is the learning rate (LR). Note that a weight decay term (see Section <a href="#ch4.sec1">1.1</a>) is used in practice; it is excluded from all the equations in this section to simplify notation.</p>
+<p>The LR controls the change of the model in response to the gradient and is the most <a href="https://arxiv.org/abs/1206.5533">critical</a> hyperparameter to tune for numerical stability [<a href="../biblio/#bengio2012">Ben12</a>]. In Section <a href="../ch04/#ch04.sec5.sub4">4.5.4</a>, we provide recommendations on tuning this and other hyperparameters. Figure <a href="../ch04/#fig:gd">4.5</a> shows a GD update toy example in a 1D space using different LRs. A high LR can cause the model to diverge, where the cost increases rather than decreases. A small LR can result in longer-than-needed number of convergence steps and training time. A good LR results in proper progress toward the minimum (the green arrow in the figure).</p>
+<div id="fig:gd"></div>
+<p><img alt="" src="../figures/ch04-05.png" />
+<em>Figure 4.5:</em> Gradient descent update using LRs that are (red arrows) too large or too small, and (green arrow) good enough.</p>
+<p>In SGD or, more precisely, mini-batch gradient descent (MBGD), the dataset is divided into several batches. In statistics literature, SGD means MBGD with a batch size of <span class="arithmatex">\(1\)</span>, but in most DL literature and in this book, SGD refers to MBGD with any arbitrary batch size less than the training dataset. When the batch size equals the full-batch, SGD becomes GD, and one epoch equals one training iteration. In SGD, the gradient used to update the model is computed with respect to a mini-batch (as opposed to the entire dataset), as shown in Figure <a href="../ch04/#fig:sgd">4.6</a>, and otherwise, the implementation of SGD and GD are equivalent.</p>
+<div id="fig:sgd"></div>
+<p><img alt="" src="../figures/ch04-06.png" />
+<em>Figure 4.6:</em> The dataset is broken into <span class="arithmatex">\(M\)</span> batches, and the weight vector (two dimensions in this toy example) is updated using the gradient computed with respect to the cost associated with a batch. The progress toward the minimum (the inner oval) is not smooth (unlike in GD) but faster than GD: for every <span class="arithmatex">\(1\)</span> GD step, SGD takes <span class="arithmatex">\(M\)</span> steps.</p>
+<p>There are two main challenges with GD and large-batch SGD. First, each step or iteration is computationally expensive as it requires computing the cost over a large number of samples. Second, the optimizer may converge to a sharp minimum solution (rather than stuck at a saddle point as <a href="https://arxiv.org/abs/1406.2572">previously thought</a>) that often <a href="https://arxiv.org/abs/1804.07612">does not generalize</a>, as shown in Figure <a href="../ch04/#fig:flat-sharp">4.4</a> [<a href="../biblio/#masters2018">ML18</a>; <a href="../biblio/#yao2018">YGL+18</a>; <a href="../biblio/#dauphin2014">DPG+14</a>].</p>
+<p>The Hessian (this is the second derivative in 1D) can be used to analyze the curvature of the objective function along the various dimensions to determine if a solution is in a flat or sharp minimum. Smaller absolute eigenvalues indicate a flatter curvature in the corresponding dimension, and the average Hessian trace <a href="https://arxiv.org/abs/1911.03852">provides</a> a metric for the average curvature across all dimensions; a higher trace value indicates a sharp minimum [<a href="../biblio/#dong2019-b">DYC+19</a>].</p>
+<p>The algorithmic reasons for the convergence to a sharp minimum are not well understood. One <a href="https://arxiv.org/abs/1609.04836">hypothesis</a> is that the objective function has many sharp minima and gradient descent does not explore the optimization space but rather moves toward the local minimum directly underneath its starting position, which is typically a sharp minimum [<a href="../biblio/#keskar2017">KMN+17</a>]. This hypothesis is at conflict with the hypothesis that the objective function is <a href="https://arxiv.org/abs/1802.08770">roughly convex</a> [<a href="../biblio/#xing2018">XAT+18</a>]. Additional research is required to understand the reasons better.</p>
+<p>The batch size is an important hyperparameter to tune. A larger batch size has higher compute utilization because there is more data reuse; that is, the compute-to-data-read ratio is higher for larger batches. However, using very large batches suffers from the same challenges as GD and requires meticulous tuning to avoid converging to a sharp minimum. Still, using a micro-batch is not ideal because the computational resources are tipically underutilized. Furthermore, micro-batches <a href="https://arxiv.org/abs/1702.03275">do not</a> have sufficient statistics to properly use batch normalization [<a href="../biblio/#ioffe2017">Iof17</a>]. There is a sweet spot of a batch size where it is large enough to use the hardware compute units efficiently and small enough for the model to properly converge to a flat minimum without too much hyperparameter tuning.</p>
+<p>Shallue et al. <a href="https://arxiv.org/abs/1811.03600">demonstrated</a> empirically across several models and datasets, that for a given optimizer and a model, there are three batch size regions. There is a perfect scaling region, where the batch size and LR proportionally increase and the number of training iterations proportionally decreases. There is a diminishing-returns region, where increasing the batch size decreases the number of iterations but not proportionally. And there is a stagnation region, where increasing the batch size provides minimal to no benefits. The stagnation occurs because the gradients computed with a large-batch have low variance. They already closely approximate the GD gradient, and increasing the batch size further does not result in significantly different gradients. Furthermore, as already discussed, very large batches may converge to sharp minima. Figure <a href="../ch04/#fig:bs-regions">4.7</a> captures some of their results on three popular models and datasets and Table <a href="../ch04/#tab:bs-regions">4.1</a> summarizes the results in the figure [<a href="../biblio/#shallue2019">SLA+19</a>]. In Section <a href="../ch04/#ch04.sec5.sub4">4.5.4</a>, we discuss hyperparameter tuning, which includes choosing a batch size.</p>
+<div id="fig:bs-regions"></div>
+<p><img alt="" src="../figures/ch04-07.png" />
+<em>Figure 4.7:</em> The number of training steps required to meet the expected training and validation error as a function of batch size for three models. Dotted line denotes perfect scaling. See Table <a href="../ch04/#tab:bs-regions">4.1</a> for the high-level summary. Source: [<a href="../biblio/#shallue2019">SLA+19</a>] (CC BY-SA 4.0).</p>
+<div id="tab:bs-regions"></div>
+<p><em>Table 4.1:</em> Batch size scaling regions across the three models observed in Figure 4.7.
+<img alt="" src="../figures/ta04-01.png" /></p>
+<p>Training iterations should (on average) decrease the training error. A plateau training error indicates that the solution is bouncing along the edges of the objective function and no longer converging. Decreasing the LR can help the error continue to decrease and converge to a solution closer to the local minimum. A <a href="https://arxiv.org/abs/1608.03983">better</a> approach may be to use a <a href="https://arxiv.org/abs/1506.01186v6">cyclical LR</a> between a user-set high and low LR to better explore the solution space, in <a href="https://arxiv.org/abs/1803.05407">particular</a> toward the later part of training [<a href="../biblio/#loshchilov2017">LH17</a>; <a href="../biblio/#smith2017">Smi17</a>; <a href="../biblio/#izmailov2019">IPG+19</a>]. Each learning cycle starts at the high LR, which decreases with each iteration. After reaching the low LR, another learning cycle starts (at the high LR). This technique can be applied with all the optimizers.</p>
+<p><a href="https://www.ncbi.nlm.nih.gov/pubmed/12662723">SGDM</a> improves the speed of convergence over SGD alone [<a href="../biblio/#qian1999">Qia99</a>]. Most training in the literature that claims SGD actually used SGDM. That is, the term <em>SGD</em> is often an alias for SGDM in published literature but not in this chapter to avoid confusion. SGD alone makes slow progress in ravines (areas where the partial derivative in one dimension is much higher than other dimensions), as shown in Figure <a href="../ch04/#fig:ravine">4.8</a>. Ravines are prevalent when optimizing over millions of dimensions, which is common in DL models.</p>
+<div id="fig:ravine"></div>
+<p><img alt="" src="../figures/ch04-08.png" />
+<em>Figure 4.8:</em> Toy example of a 2D space with a ravine. (a) SGD makes slow progress. (b) SGDM makes faster progress toward the minimum. Based on [<a href="../biblio/#orr1999">Orr99</a>].</p>
+<p>SGDM accelerates SGD in the direction of the exponential decaying average of past gradients, also known as the <em>first moment</em> or just <em>moment</em>, and dampens oscillations. Rather than directly modifying the weights, the gradients modify this moment, and the moment is then used to update the weights as follows: </p>
+<div class="arithmatex">\[\begin{aligned} \mathbf{g} &amp; = \nabla_\mathbf{w} J(\mathbf{w}) \\ \mathbf{m} &amp; := \beta \cdot \mathbf{m} + (1-\beta) \cdot \mathbf{g} \\ \mathbf{w} &amp; := \mathbf{w} - \alpha \cdot \mathbf{m}, \end{aligned}\]</div>
+<p>where <span class="arithmatex">\(\mathbf{m}\)</span> is the (exponential decaying) average gradient or first moment that gets decayed by the momentum term <span class="arithmatex">\(\beta\)</span> usually set to <span class="arithmatex">\(\beta=0.9\)</span>, <span class="arithmatex">\(\mathbf{m}\)</span> is initialized to <span class="arithmatex">\(\mathbf{m}=\mathbf{0}\)</span>, and <span class="arithmatex">\(\alpha\)</span> is the LR which requires tuning. SGDM is widely adopted in the industry, in particular, for computer vision models, and works well across multiple tasks when the learning rate is properly tuned.</p>
+<p>Adaptive Moment Estimation (<a href="https://arxiv.org/abs/1412.6980">Adam</a>) is more robust than momentum to different LRs, and therefore requires less LR tuning [<a href="../biblio/#kingma2017">KB17</a>]. Adam computes an adaptive LR for each parameter. Specifically, Adam uses an average gradient (as in SGDM) normalized by an average gradient squared called the <em>second moment</em> or <em>variance</em>. Thus, every weight is updated with a different LR as follows: </p>
+<div class="arithmatex">\[\begin{aligned}
+\mathbf{g} &amp; = \nabla_\mathbf{w} J(\mathbf{w}) \\
+\mathbf{m} &amp; := \beta_1 \cdot \mathbf{m} + (1-\beta_1) \cdot \mathbf{g} \\
+\mathbf{v} &amp; := \beta_2 \cdot \mathbf{v} + (1-\beta_2) \cdot \mathbf{g}^2 \\
+\hat{\mathbf{m}} &amp; = \mathbf{m} / (1-\beta_1^t) \\
+\hat{\mathbf{v}} &amp; = \mathbf{v} / (1-\beta_2^t) \\
+\mathbf{r} &amp;= \hat{\mathbf{m}}/(\sqrt{\hat{\mathbf{v}}} + \epsilon) \\
+\mathbf{w} &amp; := \mathbf{w} - \alpha \cdot \mathbf{r},
+\end{aligned}\]</div>
+<p>where <span class="arithmatex">\(\mathbf{m}\)</span> and <span class="arithmatex">\(\mathbf{v}\)</span> are the first and second moment estimates, <span class="arithmatex">\(\hat{\mathbf{m}}\)</span> and <span class="arithmatex">\(\hat{\mathbf{v}}\)</span> are the bias-corrected first and second moment estimates, respectively, <span class="arithmatex">\(\mathbf{g}^2\)</span> is the element-wise squared of <span class="arithmatex">\(\mathbf{g}\)</span>, vector division is element-wise division <span class="arithmatex">\(\mathbf{m}\)</span> and <span class="arithmatex">\(\mathbf{v}\)</span> are both initialized to <span class="arithmatex">\(\mathbf{0}\)</span>, <span class="arithmatex">\(\beta_1\in [0,1)\)</span>, <span class="arithmatex">\(\beta_2\in [0,1)\)</span>, and <span class="arithmatex">\(\epsilon&gt;0\)</span> are usually set to <span class="arithmatex">\(\beta_1=0.9\)</span>, <span class="arithmatex">\(\beta_2=0.999\)</span>, and <span class="arithmatex">\(\epsilon=0.001\)</span>, the exponent term <span class="arithmatex">\(t\)</span> is the training iteration and <span class="arithmatex">\(\alpha\)</span> is the LR which requires some tuning.</p>
+<p>Intuitively, a small variance in the gradients means the gradients are pointing in similar directions, which increases the confidence that the direction is right. Therefore, a larger step in that direction is taken using a larger LR. The opposite happens with a large variance: a small step is taken.</p>
+<p>When switching from SGD to Adam, the regularization hyperparameter needs to be adjusted since Adam <a href="https://arxiv.org/abs/1711.05101">requires</a> more regularization [<a href="../biblio/#loshchilov2019">LH19</a>]. While the <a href="https://arxiv.org/abs/1412.6980">original paper</a> used <span class="arithmatex">\(\epsilon=10^{-8}\)</span>, we recomend <span class="arithmatex">\(\epsilon=10^{-3}\)</span> to prevent a huge step size when <span class="arithmatex">\(\hat{\mathbf{v}}\)</span> is miniscule, which often happens toward the end of training [<a href="../biblio/#kingma2017">KB17</a>].</p>
+<p>Adam is widely adopted in the industry, in particular, for NLP models, and empirically works well across multiple tasks despite <a href="https://arxiv.org/abs/1904.09237">not converging</a> to the optimal solution in simpler convex optimization tasks [<a href="../biblio/#reddi2019">RKK19</a>]. SGDM continues to <a href="https://arxiv.org/abs/1705.08292">perform well</a> or <a href="https://arxiv.org/abs/1712.07628">better</a> across various tasks when the LR is well tuned compared to newer techniques. SGDM often converges and generalizes better, albeit with longer training time, than Adam [<a href="../biblio/#wilson2018">WRS+18</a>; <a href="../biblio/#keskar2017-b">KS17</a>]. Some practitioners begin training with Adam due to the convergence speed and finish with SGDM due to the convergence quality.</p>
+<p>Rectified Adam (<a href="https://arxiv.org/abs/1908.03265">RAdam</a>) is a simple adaptation to Adam that switches between Adam and SGDM [<a href="../biblio/#liu2019">LJH+19</a>]. RAdam dynamically turns on or off the adaptive LR depending on the variance confidence. Thus, Adam's possible initial training instability due to the limited data points used to compute the variance is mitigated with this on/off adaptive LR. RAdam uses a rectified adaptive LR as it gains confidence about the variance; otherwise, it falls back to SGDM.</p>
+<p>All the above optimizers share a common challenge that LARS and LAMB addresses. To maintain stability, weights with a small magnitude should have a small weight update magnitude, and vice versa. However, every layer in a model often has vastly different <span class="arithmatex">\(\frac{||w^{(l)}||}{||g^{(l)}||}\)</span> ratios. A small ratio can lead to training instability (divergence), and a large ratio can lead to slow learning. LARS and LAMB improve training stability by normalizing the step size in each layer. This additional stability allows training with large-batches (up to some size determined experimentally).</p>
+<p>Layer-wise Adaptive Rate Scaling (<a href="https://arxiv.org/abs/1708.03888">LARS</a>) uses a local LR <span class="arithmatex">\(\alpha^{(l)}\)</span> proportional to the ratio of the magnitude of the weights to the magnitude of the gradients [<a href="../biblio/#you2017">YGG17</a>]. LARS is applied to SGD as follows: </p>
+<div class="arithmatex">\[\begin{aligned} \alpha^{(l)} &amp; = \frac{||\mathbf{w}^{(l)}||}{||\mathbf{g}^{(l)}||} \\ \mathbf{w}^{(l)} &amp; := \mathbf{w}^{(l)} - \alpha_0 \cdot \alpha^{(l)} \cdot \mathbf{g}^{(l)},\end{aligned}\]</div>
+<p>where <span class="arithmatex">\(\alpha_0\)</span> is the global LR.</p>
+<p>LARS can be used with SGDM or with Adam, known as <a href="https://arxiv.org/abs/1904.00962">LAMB</a> [<a href="../biblio/#you2020">YLR+20</a>]. LAMB was successfully used by Google to train BERT and ResNet-50 with batch size <span class="arithmatex">\(32K\)</span> with little hyperparameter tuning. The Adam equations are modified as follows in LAMB: </p>
+<div class="arithmatex">\[\begin{aligned} \alpha^{(l)} &amp; = \frac{||\mathbf{w}^{(l)}||}{||\mathbf{r}^{(l)}||} \\ \mathbf{w}^{(l)} &amp; := \mathbf{w}^{(l)} - \alpha_0 \cdot \alpha^{(l)} \cdot \mathbf{r}^{(l)}.\end{aligned}\]</div>
+<p>Other influential optimizers are <a href="http://www.jmlr.org/papers/volume12/duchi11a/duchi11a.pdf">AdaGrad</a> (in particular, for sparse data), <a href="https://www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf">RMSProp</a>, <a href="https://arxiv.org/abs/1212.5701">AdaDelta</a>, <a href="https://openreview.net/forum?id=OM0jvwB8jIp57ZJjtNEZ">Nadam</a>, Nesterov accelerated gradient (<a href="https://ieeexplore.ieee.org/document/7966082">NAG</a>), <a href="https://arxiv.org/abs/1711.05101">AdamW</a>, <a href="https://arxiv.org/abs/1904.09237">AMSGrad</a>, and <a href="https://arxiv.org/abs/1905.11286">NovoGrad</a> [<a href="../biblio/#duchi2011">DHS11</a>; <a href="../biblio/#hinton2012">HSS12</a>; <a href="../biblio/#zeiler2012">Zei12</a>; <a href="../biblio/#dozat2016">Doz16</a>; <a href="../biblio/#botev2017">BLB17</a>; <a href="../biblio/#loshchilov2019">LH19</a>; <a href="../biblio/#reddi2019">RKK19</a>; <a href="../biblio/#ginsburg2020">GCH+20</a>]. Figure <a href="../ch04/#fig:pedigree">4.9</a> shows an estimated pedigree of optimizers. These are first-order optimizers. AdaHessian is a second-order optimizer that converges to a better minimum than first-order optimizers without the prohibited computational cost of other second-order optimizers [<a href="../biblio/#yao2020">YGS+20</a>]. Given the promising results, AdaHessian adoption may grow.</p>
+<div id="fig:pedigree"></div>
+<p><img alt="" src="../figures/ch04-09.png" />
+<em>Figure 4.9:</em> A pedigree of optimization algorithms.</p>
+<p>Stochastic weight averaging (<a href="https://arxiv.org/abs/1803.05407">SWA</a>) and LookAhead (<a href="https://arxiv.org/abs/1907.0861">LA</a>) are complementary techniques that improve generalization by converging to a better (flatter) minimum [<a href="../biblio/#izmailov2019">IPG+19</a>; <a href="../biblio/#zhang2019">ZLH+19</a>]. The motivation for SWA is that during the later training iterations, SGD bounces between the borders of a wider minimum. The average of the bounces is a better solution. SWA maintains a separate set of averaged weights <span class="arithmatex">\(\mathbf{w}_{\mathit{SWA}}\)</span> in addition to the regular set of weights <span class="arithmatex">\(\mathbf{w}\)</span> used by the optimizer. <span class="arithmatex">\(\mathbf{w}_{\mathit{SWA}}\)</span> is initialized with <span class="arithmatex">\(\mathbf{w}\)</span> after completing at least <span class="arithmatex">\(75\%\)</span> of the training iterations. Then, after completing several iterations, <span class="arithmatex">\(\mathbf{w}_{\mathit{SWA}}\)</span> is updated as follows: </p>
+<div class="arithmatex">\[\mathbf{w}_{\mathit{SWA}} := \frac{\mathbf{w}_{\mathit{SWA}} \cdot n_{\mathit{cycle}} + \mathbf{w}}{n_{\mathit{cycle}} + 1},\]</div>
+<p>where <span class="arithmatex">\(n_{\mathit{cycle}}\)</span> is the number of completed cycles after initializing <span class="arithmatex">\(\mathbf{w}_{\mathit{SWA}}\)</span>, and <span class="arithmatex">\(\mathbf{w}\)</span> is the model learned by the optimizer. One cycle consists of multiple iterations, typically one epoch, but this can vary depending on the dataset's size.</p>
+<p>For training, SWA requires <span class="arithmatex">\(\mathit{sizeof}(\mathbf{w}_{\mathit{SWA}})\)</span> additional memory, which is relatively small compared to the activations and requires negligible additional computations to update. No additional memory or computations is required for serving.</p>
+<p><a href="https://arxiv.org/abs/1907.08610">LookAhead</a> (LA) follows a similar approach to SWA [<a href="../biblio/#zhang2019">ZLH+19</a>]. The primary difference is that the optimizer updates its weights to <span class="arithmatex">\(\mathbf{w}_{\mathit{LA}}\)</span> after some iterations: <span class="arithmatex">\(\mathbf{w} := \mathbf{w}_{\mathit{LA}}\)</span>. That is, the moving average <span class="arithmatex">\(\mathbf{w}_{\mathit{LA}}\)</span> changes the optimization trajectory.</p>
+<p><a href="https://medium.com/@lessw/new-deep-learning-optimizer-ranger-synergistic-combination-of-radam-lookahead-for-the-best-of-2dc83f79a48d">Ranger</a> is a combination of RAdam and LA, and <a href="https://github.com/mgrankin/over9000">RangerLARS</a> applies LARS techniques to Ranger [<a href="../biblio/#wright2019">Wri19</a>]. We recommend using Ranger as the go-to optimizer and RangerLARS when using large batches.</p>
+<div id="ch04.sec4"></div>
+<h2 id="44-backpropagation">4.4 Backpropagation</h2>
+<p>The rediscovery of the backpropagation algorithm in the 1980s facilitated multilayer NN training. Backpropagation provides an efficient way to compute the gradients, which are then used by the optimization algorithm. This section introduces some of the mathematics behind backpropagation to demystify the learning process; for a reader who may not be interested in all these details, the main takeaway is that backpropagation boils down to multiplications and additions.</p>
+<p>The cross-entropy cost function, also known as the log-cost or logistic cost, is as follows: </p>
+<div class="arithmatex">\[J(\mathbf{w})=- \sum_{n=0}^{N-1}\sum_{k=0}^{K-1}y_k^{[n]} \log \left(\hat{y}_k^{[n]} \right) ,\]</div>
+<p>where <span class="arithmatex">\(N\)</span> is the number of samples in a training batch, <span class="arithmatex">\(y_k^{[n]}\in\{0,1\}\)</span> is <span class="arithmatex">\(1\)</span> if sample <span class="arithmatex">\(n\)</span> belongs to class <span class="arithmatex">\(k\)</span> and <span class="arithmatex">\(0\)</span> otherwise, <span class="arithmatex">\(\hat{y}_k^{[n]}\)</span> is the model's prediction (as a probability) that sample <span class="arithmatex">\(n\)</span> belongs to class <span class="arithmatex">\(k\)</span>. The intuition is that when the model predicts a low probability for the correct class, the cost for that sample is high and vice versa. When <span class="arithmatex">\(y_k^{[n]}=1\)</span>, as <span class="arithmatex">\(\hat{y}_k^{[n]}\)</span> approaches zero, the loss approaches infinity. Note that in practice, the cost function includes a weight decay penalty (shown here but often omitted to simplify the notation): </p>
+<div class="arithmatex">\[J(\mathbf{w})=-\left( \sum_{n=0}^{N-1}\sum_{k=0}^{K-1}y_k^{[n]} \log \left(\hat{y}_k^{[n]} \right)\right) + \left(\frac{\lambda}{2}\sum_{l=0}^{L-2}\sum_{j=1}^{D^{(l+1)}} \sum_{i=1}^{D^{(l)}}\left(w_{ji}^{(l)}\right)^{2}\right),\]</div>
+<p>where <span class="arithmatex">\(\lambda \geq 0\)</span> is the regularization factor.</p>
+<p>This objective function is minimized using an optimizer from Section <a href="../ch04/#ch04.sec3">4.3</a> chosen by the data-scientist. The input to the optimizer is the gradient or partial derivatives of the cost with respect to each weight <span class="arithmatex">\(w_{ji}^{(l)}\)</span>: </p>
+<div class="arithmatex">\[\frac{\partial J(\mathbf{w})}{\partial w_{\mathit{ji}}^{(l)}} ,\]</div>
+<p>which needs to be computed for all the weights in a layer and for all the layers of the topology. Each partial derivative is a metric of how a change in the respective weight changes the cost. The optimizer specifies how to nudge each weight to decrease the cost.</p>
+<p>Figure <a href="../ch04/#fig:backprop">4.10</a> illustrates how backpropagation works in a toy model to compute one such partial derivative, specifically <span class="arithmatex">\(\frac{\partial \mathcal{L}}{\partial w_{32}^{(0)}}\)</span>, where <span class="arithmatex">\(\mathcal{L}=J(\mathbf{w})\)</span> to simplify the notation. This partial derivative depends on the next layer's gradient, which depends on the following layer's gradient, and so on. The partial derivative in the color boxes are computed from the forward propagation equations, and their numerical values can be plugged into the chain of equations to determine <span class="arithmatex">\(\frac{\partial \mathcal{L}}{\partial w_{32}^{(0)}}\)</span>. Note that the hidden layer assumes a ReLU activation function. In practice, the partial derivatives for an entire layer are computed as a group using matrix algebra.</p>
+<div id="fig:backprop"></div>
+<p><img alt="" src="../figures/ch04-10.png" />
+<em>Figure 4.10:</em> Using the chain rule to compute the partial derivative of the cost with respect to a weight in the model. For simplicity, the bias is omitted from the figure.</p>
+<div id="ch04.sec5"></div>
+<h2 id="45-training-techniques">4.5 Training Techniques</h2>
+<p>Training a model involves preparing the dataset and tuning various hyperparameters, such as choosing a topology, selecting an optimizer, and specifying a batch size. In this section, we describe general guidelines in dataset preparation, topology design, and debugging training. These guidelines are based on the current best heuristics rather than a closed-form optimal solution. Thus, experimentation may be required to determine if a guideline is beneficial to a specific training task.</p>
+<div id="ch04.sec5.sub1"></div>
+<h3 id="451-training-dataset">4.5.1 Training Dataset</h3>
+<p>The first step in training is to manually analyze samples from the dataset to ensure the samples (or most of them) are not corrupted, do not have duplicates, and have proper labels, as well as identify class imbalances. Class imbalances means that training samples are not evenly distributed among the classes. For instance, a dataset used to train a tumor classifier from radiology imagery likely has more images without tumors than with tumors. A simple approach is to oversample the underrepresented class or artificially increase its samples using techniques, such as <a href="https://arxiv.org/abs/1106.1813">SMOTE</a> or <a href="https://ieeexplore.ieee.org/document/4633969">ADASYN</a> discussed elsewhere [<a href="../biblio/#chawla2011">CBH+11</a>; <a href="../biblio/#he2008">HBG+08</a>], and always analyzing the generated samples to ensure they are realistic. Another approach is to undersample the overrepresented class keeping the harder-to-classify samples. One approach to select the harder-to-classify samples is to train several models, each with a subset of the overrepresented class, and select the misclassified samples. Dealing with class-imbalances is an open research area. Using a metric, such as the <a href="https://en.wikipedia.org/wiki/F1_score"><span class="arithmatex">\(F1\)</span> score</a>, is better than the classification rate for tasks with imbalanced datasets to avoid falling into the <a href="https://en.wikipedia.org/wiki/Accuracy_paradox">accuracy paradox</a>, where the classifier always predicts the oversampled class. Also, recall from Section <a href="../ch04/#ch04.sec2">4.2</a> that class imbalances affect the bias initialization of the last layer.</p>
+<p>The training dataset should be split into a training set, validation set (also called out-of-sample or development set), and test set. The training set is used to train the model, and the validation set is used to observe the model's statistical performance on data outside the training set. Hyperparameters are tuned based on the performance on the validation set. The test set should only be used once, after the model and hyperparameters are locked, on data never used to train or tune the model to estimate the performance in deployment. The training-validation-test percentage split depends on the overall size of the training dataset and the similarity between training and deployment data. Assuming all the training samples are from the same distribution, an appropriate percentage split for a dataset with 10,000 samples is <span class="arithmatex">\(80\)</span>-<span class="arithmatex">\(15\)</span>-<span class="arithmatex">\(5\)</span>, for a dataset with <span class="arithmatex">\(1\)</span> million samples is <span class="arithmatex">\(95\)</span>-<span class="arithmatex">\(4\)</span>-<span class="arithmatex">\(1\)</span>, and for a dataset with <span class="arithmatex">\(100\)</span> million samples is <span class="arithmatex">\(99.0\)</span>-<span class="arithmatex">\(0.9\)</span>-<span class="arithmatex">\(0.1\)</span>. The validation and test sets should be sampled from the same distribution as the serving data; that is, they should be as similar to the data used in production to tune the model parameters properly. Any oversampling should be done after splitting the training dataset to avoid data samples being present in both the training and validation sets.</p>
+<p>Preprocessing the training set usually involves subtracting the mean and normalizing the variance. It is critical that whatever statistics and techniques used on the training set are also used on the validation set and in deployment. In particular, if the mean of the training set is subtracted from the training samples, then the same <em>training</em> mean value should be subtracted in the validation set and in deployment. Mirroring the preprocessing training steps in the deployment data is sometimes ignored when different teams train and deploy models, resulting in lower than expected performance.</p>
+<p>Data augmentation is a common technique to increase the dataset size in computer vision, speech recognition, and language processing tasks. In speech recognition, each sample can be <a href="https://arxiv.org/abs/1904.08779">augmented</a> by masking or modifying the sample in the time and frequency domain via time and frequency masking and time warping [<a href="../biblio/#park2019">PCZ+19</a>]. In computer vision, each sample can be left-right flipped, cropped in various locations, and slightly rotated. It is common to augment each sample <span class="arithmatex">\(10\)</span> times, thus, artificially increasing the dataset by an order of magnitude. In language processing, sentences can be duplicated to augment the dataset using the synonyms of some of the words in the sentences.</p>
+<p>The last step in preparing the training set is shuffling the order without breaking association with the labels, and manually reanalyzing some of the augmented samples after all the preprocessing steps to ensure they are still valid. Reshuffling the training data between each epoch usually does not help.</p>
+<div id="ch04.sec5.sub2"></div>
+<h3 id="452-designing-a-topology">4.5.2 Designing a Topology</h3>
+<p>The recommended approach to design a topology for a particular task is to start with a simple topology and then add more complexity. Note that for some tasks, other ML algorithms, such as linear regression or XGBoost (do not worry if you are unfamiliar with these algorithms), which require significantly less compute, may be sufficient.</p>
+<p>During the design stage, using <span class="arithmatex">\(fp32\)</span> and a relatively small batch size ensures that issues encountered are not related to a small numerical representation or a large batch size. Note that as the industry gains more confidence in the robustness of <span class="arithmatex">\(bf16\)</span>, the design stage may shift toward <span class="arithmatex">\(bf16\)</span>. Before increasing the complexity, the designer should verify that the model correctly:</p>
+<ol>
+<li>
+<p>consumes the data;</p>
+</li>
+<li>
+<p>generates a valid output;</p>
+</li>
+<li>
+<p>produces the expected cost;</p>
+</li>
+<li>
+<p>learns a better model when trained with real-data vs. random or all-zeros data; and</p>
+</li>
+<li>
+<p>overfits when trained with a tiny dataset, for instance, with two samples.</p>
+</li>
+</ol>
+<p>Then the designer should incrementally increase the complexity with more units and layers, re-verifying the correctness each time. Note that a topology and training process that cannot overfit (the training error is close to or equal to zero) to a few data samples likely indicates a bug.</p>
+<p>Section <a href="../ch04/#ch04.sec5.sub3">4.5.3</a> details the debugging steps when the model is not behaving as expected. The data scientist should monitor the training and validation errors throughout the training process. The training error should decrease by adding more layers and units to the topology; otherwise, this may indicate a bug. This verification-at-every-step approach avoids having a large complex topology full of difficult-to-debug issues. Finding and resolving issues with a smaller topology is significantly easier. Note that introducing a batch normalization layer requires increasing the batch size to <span class="arithmatex">\({\sim}32\)</span> because batch normalization does not work well with tiny batches. A better approach is to use group normalization (see Section <a href="../ch2./#ch2.sec6">2.</a>) or another normalization technique which can use micro-batches.</p>
+<p>One practical approach is to build up the topology layer-by-layer toward an existing topology (a reference implementation) designed for a related task and dataset size. An alternative approach, detailed in Section <a href="../ch04/#ch04.sec5.sub4">4.5.4</a>, is to start with an existing topology, adapt it to the required task, and tune the hyperparameters. In either approach, the depth and size of the topology depend on the size of the dataset. In both approaches, verification-at-every-step is imperative to a successful design following the debugging steps outlined in Section <a href="../ch04/#ch04.sec5.sub3">4.5.3</a> when the model is not behaving as expected.</p>
+<p>Another recommendation is to incrementally build a deeper model that overfits the training dataset, and then use regularization techniques, such as weight decay, to reduce overfitting. During this process, the data scientist closely monitors the training and validation errors and modifies the topology to decrease the validation error. A high training error indicates the need for a bigger topology. A high validation error indicates the need for regularization or a larger training dataset. Also, the constraints of the serving hardware, such as memory size, should be included in the design process.</p>
+<p>Overfitting before regularization serves two purposes. First, it indicates the model is large enough to capture the complexities in the dataset. Second, it is a method to verify the training process is working correctly. Note that data augmentation is a form of regularization reserved for the final design stages.</p>
+<p>During the design stage, it is recommended to use the Adam optimizer and a constant LR (as opposed to a decaying LR). More advanced optimizers, such as RangerLARS and advanced LR techniques, such as cyclical LR, should be explored after the topology design is finalized. Note that every step of the design stage may require finding a new LR as deeper models typically need a larger LR.</p>
+<div id="ch04.sec5.sub3"></div>
+<h3 id="453-debugging-training">4.5.3 Debugging Training</h3>
+<p>Debugging training can be extremely challenging. There are multiple <a href="http://karpathy.github.io/2019/04/25/recipe/">sources</a> of errors in different parts of the training pipeline from the data-processing and topology definition to the optimizer and numerical representation [<a href="../biblio/#karpathy2019">Kar19</a>]. The following steps can help determine and fix the bug when a model is not training as expected:</p>
+<ol>
+<li>
+<p>Use <span class="arithmatex">\(fp32\)</span> to ensure smaller numerical representations are not the cause of the error.</p>
+</li>
+<li>
+<p>Visualize the samples after all the preprocessing steps to ensure no unreasonable distortions were introduced.</p>
+</li>
+<li>
+<p>Verify the validation dataset is preprocessed using the same statistics and techniques as the training set, including the tensor layout.</p>
+</li>
+<li>
+<p>Check that dropout and normalization layers are not simultaneously used; otherwise, permanently remove the dropout layer.</p>
+</li>
+<li>
+<p>Train with a small batch size; if there are batch normalization layers, then use a batch size of <span class="arithmatex">\({\sim}32\)</span> or, better, replace batch normalization with group renormalization.</p>
+</li>
+<li>
+<p>Visualize the activation outputs at each layer with a visualization tool, such as <a href="https://www.tensorflow.org/tensorboard">TensorBoard</a>, to ensure they make sense; for instance, the first layer in a CNN model typically learns to detect edges.</p>
+</li>
+<li>
+<p>Temporarily reduce the number of training samples to two samples to verify the model can quickly overfit to those training samples.</p>
+</li>
+<li>
+<p>Verify the initial cost matches intuition, for instance, a <span class="arithmatex">\(0\)</span>- to <span class="arithmatex">\(9\)</span>-digit classification with a balanced dataset should have an initial cost of approximately <span class="arithmatex">\(-\ln (1/10) \times N=2.3N\)</span>, for a batch of size <span class="arithmatex">\(N\)</span>.</p>
+</li>
+<li>
+<p>Verify that regular training data results in higher statistical performance than random or zero-input training data; otherwise, this indicates the model is damaging the data or ignoring it.</p>
+</li>
+<li>
+<p>Visualize and look for patterns in mispredicted samples.</p>
+</li>
+<li>
+<p>Use a fixed random seed to exactly reproduce the same behavior when looking for a bug in the code and debug layer-by-layer and op-by-op to find where the observed behavior differs from the expected behavior.</p>
+</li>
+<li>
+<p>Experiment with various weight decay penalties and observe if the training behavior changes as expected: more regularization (a higher penalty) should increase the training error and decrease the test error if the model is overfitting.</p>
+</li>
+<li>
+<p>Experiment with various LRs using both a constant and a cyclical LR, plot the training and validation errors vs. the number of iterations, and observe if the behavior of the errors is as expected.</p>
+</li>
+<li>
+<p>Replace ReLU with LeakyReLU if many gradient values are zero preventing proper learning.</p>
+</li>
+<li>
+<p>Replace all sigmoid functions with hyperbolic tangent functions if the outputs do not have to be between <span class="arithmatex">\(0\)</span> and <span class="arithmatex">\(1\)</span> strictly; limit sigmoid functions to represent probabilities in LSTM gates and for the last layer of a binary classification model.</p>
+</li>
+<li>
+<p>Clip high gradient values.</p>
+</li>
+<li>
+<p>Temporarily remove normalization layers to verify the normalization is not masking some hard-to-find bug.</p>
+</li>
+<li>
+<p>Ensure the correct APIs are used, for instance, the negative log-likelihood loss and the cross-entropy loss are sometimes incorrectly <a href="https://discuss.pytorch.org/t/difference-between-cross-entropy-loss-or-log-likelihood-loss/38816">interchanged</a>.</p>
+</li>
+</ol>
+<div id="ch04.sec5.sub4"></div>
+<h3 id="454-tuning-hyperparameters">4.5.4 Tuning Hyperparameters</h3>
+<p>In this section, we provide recommendations in tuning the hyperparameters: the LR, the batch size, the weight decay, and the optimizer. We also describe how a hyperparameter can affect the other ones. All the recommended hyperparameters require experimentation for proper tuning. Usually, after several training iterations, the set of good hyperparameters narrows to a selected few that can be further narrowed with additional training iterations. That is, full training with every hyperparameter is not required, nor is it practical.</p>
+<p>The LR is the <a href="https://arxiv.org/abs/1206.5533">most important</a> hyperparameter to tune [<a href="../biblio/#bengio2012">Ben12</a>]. There are various techniques for adapting the LR throughout the training process, including the following:</p>
+<ul>
+<li>
+<p>Constant: uses the same LR for all the iterations.</p>
+</li>
+<li>
+<p>Stepwise decreasing: iteratively reduces the LR after a set number of epochs.</p>
+</li>
+<li>
+<p>Polynomial decay: slightly reduces the LR in each iteration.</p>
+</li>
+<li>
+<p>Cyclical: iteratively decreases and then increases the LR.</p>
+</li>
+<li>
+<p>Cyclically decreasing: iteratively decreases the LR for some iterations and resets.</p>
+</li>
+</ul>
+<p>The goal when training a new topology is to achieve a low validation error. A recommended approach to train new topologies is as follows: (1) Use a relatively <a href="https://arxiv.org/abs/1804.07612">small batch size</a> (use batch size <span class="arithmatex">\({\sim} 32\)</span> if there are batch normalization layers or replace BN with group normalization); (2) Test various initial LRs, such as <span class="arithmatex">\(10^{\{-5.0,-4.5,\cdots, 0.0\}}\)</span>, and choose a large enough LR that does not cause training error to diverge [<a href="../biblio/#masters2018">ML18</a>]; (3) Train the model until <a href="https://arxiv.org/abs/1705.08741">both training and validation errors flatten</a> [<a href="../biblio/#hoffer2017">HHS17</a>]; and (4) Decrease the LR by a factor of <span class="arithmatex">\(10\)</span> and return to step (3) repeating several times until decreasing the LR no longer reduces the errors. Optionally, for the last part of the training, switch to a cyclical LR, where the LR decreases and increases again.</p>
+<p>The goal when training an established topology with a known validation error is to reduce the training time. The recommendation is to use largest batch size in the batch-size-perfect-scaling region (see Table <a href="../ch04/#tab:bs-regions">4.1</a>). An estimate of this batch size is the sum of the variances for each gradient component divided by the global norm of the gradient. The intuition is that gradients computed with micro-batches have high-variance and vice versa; thus, a good batch size results in the variance of the gradient at the same scale as the gradient itself [<a href="../biblio/#mccandlish2018">MKA+18</a>].</p>
+<p>In addition, an initial gradual warmup phase is recommended. If the targeted initial LR is <span class="arithmatex">\(\alpha_0\)</span>, the optimizer should first use LR of <span class="arithmatex">\(\alpha_0/20\)</span> and linearly increase this LR over the first <span class="arithmatex">\(\sim 10\)</span>% epochs until reaching <span class="arithmatex">\(\alpha_0\)</span>. Then the optimizer should continue with the prescribed LR training technique. The motivation for the warmup phase is to help the training start converging right away with a small LR and then increasing the LR to make faster progress.</p>
+<p>For established models, using a polynomial decay LR is a commonly prescribed LR technique: </p>
+<div class="arithmatex">\[\alpha = \alpha_0 \cdot \left(1 - \frac{t}{T}\right)^2,\]</div>
+<p>where <span class="arithmatex">\(\alpha_0\)</span> is the initial LR, <span class="arithmatex">\(t\)</span> is the current iteration, and <span class="arithmatex">\(T\)</span> is the total number of iterations. Lastly, applying a cyclical LR toward the last <span class="arithmatex">\({\sim}20\%\)</span> of training epochs can help.</p>
+<p>A recommender optimizer is RangerLARS (LARS + RAdam + LookAhead) for large batches and the simpler <a href="https://medium.com/@lessw/new-deep-learning-optimizer-ranger-synergistic-combination-of-radam-lookahead-for-the-best-of-2dc83f79a48d">Ranger</a> (RAdam + LookAhead) for small and medium batch sizes [<a href="../biblio/#wright2019">Wri19</a>].</p>
+<p>Another key hyperparameter is the <span class="arithmatex">\(L_2\)</span>-regularization or weight decay <span class="arithmatex">\(\lambda\)</span>. Recommended values to try are <span class="arithmatex">\(\lambda =10^{\{-6,-5,-4,-3\}}\)</span>. The more a model overfits, the more it requires regularization. Also, other parameters, such as the <span class="arithmatex">\(\beta\)</span>s, used in the optimization algorithms in Section <a href="../ch04/#ch04.sec3">4.3</a> <a href="https://arxiv.org/abs/1506.01186">may require</a> some tuning [<a href="../biblio/#smith2017">Smi17</a>]. Techniques, such as data augmentation, reduced numerical representations (detailed in Section <a href="../ch06/#ch06.sec1">6.1</a>), weight pruning (detailed in Section <a href="../ch06/#ch06.sec3">6.3</a>), and larger LRs contribute to regularization. Using these techniques reduces the required weight decay value. AutoML techniques (introduced in Section <a href="../ch10/#ch10.sec1">10.1</a>) can also be used for hyperparameter tuning.</p>
+<div id="ch04.sec6"></div>
+<h2 id="46-transfer-learning-via-fine-tuning">4.6 Transfer Learning Via Fine-Tuning</h2>
+<p>Transfer learning via fine-tuning is broadly adopted across many industries. The idea is to use the knowledge gained in a particular <em>source</em> task for a different <em>destination</em> task. To illustrate, different images have common features starting with edges and growing in complexity. A model can be trained on a large image dataset and then used for another task with a smaller dataset by replacing and <em>fine-tuning</em> (retraining) only the upper layers of the model; both tasks can use the same lower level features. The whole model uses the pretrained weights as the initial weights for the nonreplaced layers, and the replaced layers use the traditional weight initialization techniques (discussed in Section <a href="../ch04/#ch04.sec2">4.2</a>).</p>
+<p>Most companies have small datasets compared to the hyperscalers. Fortunately for the community, there are model zoos with models trained with large datasets. Industries and academics with smaller datasets can use these pretrained models and fine-tune them for their related tasks. Fine-tuning existing models dramatically lowers the bar of training large models and drastically increases the adoption of DL.</p>
+<p>The following are some guidelines for fine-tuning, and a summary is shown in Figure <a href="../ch04/#fig:finetune">4.11</a>.</p>
+<ul>
+<li>
+<p>Both the source and destination models should share the lower and middle layers; only the upper layers are replaced or reinitialized.</p>
+</li>
+<li>
+<p>The number of layers to replace or reinitialize depends on two factors:</p>
+</li>
+<li>
+<p>the similarities between the source task and the destination task; the more similar the tasks, the fewer layers should be reinitialized; and</p>
+</li>
+<li>
+<p>the difference between the size of the source and destination dataset; the smaller the difference, the more layers should be replaced or reinitialized.</p>
+</li>
+<li>
+<p>Fine-tuning works best when the source dataset is much larger than the destination dataset; if the destination dataset is the same size or bigger, training a new model for the destination task is a better approach.</p>
+</li>
+<li>
+<p>The initial LR to fine-tune these models should be 10-100<span class="arithmatex">\(\times\)</span> smaller than the initial LR used to train the original model for the pretrained layers. A regular LR should be used for the replaced or reinitialized layers.</p>
+</li>
+<li>
+<p>The same data preprocessing techniques on the original larger dataset should be applied to the datasets used for fine-tuning and validation.</p>
+</li>
+</ul>
+<div id="fig:finetune"></div>
+<p><img alt="" src="../figures/ch04-11.png" />
+<em>Figure 4.11:</em> High-level guidance on when and what to fine-tune. When the new task's dataset is similar to the original dataset, only the last upper layers should be retrained. When the datasets are different, then training more layers is required. If the new task's dataset is sufficiently large, then it is best to retrain the entire model.</p>
+<p>As a simple example, the following steps can be used to design and train a <a href="https://www.kaggle.com/c/dogs-vs-cats">cats vs. dogs</a> classifier (in practice, more recent models have better statistical performance):</p>
+<ol>
+<li>
+<p>Replace the last layer of a pretrained <a href="https://www.kaggle.com/keras/vgg16">VGG16</a> model from <span class="arithmatex">\(4096\times 1000\)</span> to <span class="arithmatex">\(4096\times 2\)</span>, as shown in Figure <a href="../ch04/#fig:transfer">4.12</a>, since the source dataset has <span class="arithmatex">\(1000\)</span> classes but this task only has <span class="arithmatex">\(2\)</span>.</p>
+</li>
+<li>
+<p>Initialize the last layer and use the pretrained weights for the reminder layers.</p>
+</li>
+<li>
+<p>Either freeze or reduce the LR of all the layers except the last one by <span class="arithmatex">\(100\times\)</span>.</p>
+</li>
+<li>
+<p>Train the topology with the target dataset (note that a modern laptop has sufficient computational capacity for this task).</p>
+</li>
+</ol>
+<div id="fig:transfer"></div>
+<p><img alt="" src="../figures/ch04-12.png" />
+<em>Figure 4.12:</em> Fine-tuning the VGG-16 model for the task of dogs vs. cats classification initially trained on the ImageNet-<span class="arithmatex">\(1K\)</span> dataset.</p>
+<p>Fine-tuning is also commonly used after making some modifications to the model, such as after pruning or quantizing the weights (discussed in Chapter <a href="../ch06/#ch06">6</a>). There are <a href="https://ieeexplore.ieee.org/document/5288526">other types</a> of transfer learning techniques, such as <a href="https://arxiv.org/abs/1812.11806">domain adaptation</a>, {zero, one, few}-<a href="https://arxiv.org/abs/1904.05046">shot learning</a>, and <a href="https://arxiv.org/abs/1706.05098">multitask learning</a> [<a href="../biblio/#pan2010">PY10</a>; <a href="../biblio/#kouw2019">KL19</a>; <a href="../biblio/#wang2019-d">WYK+19</a>; <a href="../biblio/#ruder2017">Rud17</a>]. These techniques have limited industry adoption.</p>
+<div id="ch04.sec7"></div>
+<h2 id="47-training-with-limited-memory">4.7 Training with Limited Memory</h2>
+<p>Training requires significantly more memory than serving. During a forward propagation iteration, the activations across all the layers need to be stored to compute the gradients during the backpropagation. Memory capacity can become a bottleneck when training large models, especially on GPUs and accelerators. In this section, we review techniques to mitigate memory bottlenecks.</p>
+<p>The most straightforward technique is to reduce the batch size. The size of the activations is proportional to the batch size. However, a batch size less than <span class="arithmatex">\(32\)</span> is not recommended for models with batch normalization layers. A solution is to replace batch normalization with group normalization technique and use a micro-batch.</p>
+<p>The next best technique is <em>gradient checkpoint</em> <a href="https://dl.acm.org/doi/10.1145/347837.347846">introduced</a> in 2000 and recently gaining traction in academia and some adoption in the industry after the technique <a href="https://arxiv.org/abs/1604.06174">resurfaced</a> in 2016 [<a href="../biblio/#griewank2000">GW00</a>; <a href="../biblio/#chen2016">CXZ+16</a>]. Gradient checkpoint reduces memory requirements at the expense of additional computations. Rather than storing the activations across all the layers, only the activations of some layers are stored. For instance, a model with <span class="arithmatex">\(100\)</span> layers can have the activations saved every <span class="arithmatex">\(10\)</span> layers. These layers are known as checkpoints, and the group of layers between checkpoints is a segment. During the backpropagation, the activations are recomputed for a particular segment. The process of recomputing them is called <em>rematerialization</em>. The activations in memory at a given time are (1) the checkpoint activations and (2) the activations for one segment. In the example with <span class="arithmatex">\(100\)</span> layers and <span class="arithmatex">\(10\)</span> checkpoints, only <span class="arithmatex">\({\sim}20\%\)</span> of all the activations are stored at any one time. The computation cost is an extra forward propagation. In a GPU or accelerator with high compute capacity and limited memory, this additional compute may require less time and power than storing and fetching the activations from the host.</p>
+<p>In practice, uniformly dividing the checkpoints is not a good practice. The total size of the activations and the computational cost of the forward propagation in each segment can significantly vary. Furthermore, checkpoints within skip connections should be avoided. Selecting an optimal number of checkpoint layers that evenly divides the total size of the activations across segments is an NP-complete problem. Jain et al. introduced <a href="https://arxiv.org/abs/1910.02653">Checkmate</a>, a system that finds checkpoints for particular hardware targets. Checkmate uses an off-the-shelf mixed-integer linear program solver coupled with a hardware cost model to find suitable checkpoints [<a href="../biblio/#jain2019">JJN+19</a>].</p>
+<p>Another technique is to store the activations as 16 bits (as opposed to 32 bits). This reduces the memory and bandwidth usage by up to a factor of <span class="arithmatex">\(2\)</span>. NNs are robust to noise, and computing the gradients using activations with half the bits typically does not impact the statistical performance. A related technique is to <a href="https://ieeexplore.ieee.org/document/8416872">store compressed activations</a> [<a href="../biblio/#jain2019">JJN+19</a>].</p>
+<p>A final technique is <a href="https://arxiv.org/abs/1909.01377">deep equilibrium</a> (DEQ), where the depth of the model can vary while keeping the required memory constant. The memory is equivalent to a single layer's activation [<a href="../biblio/#bai2019">BKK19</a>]. DEQ reduces the memory requirements at the expense of additional computations. This technique does not yet have adoption in industry.</p>
+<p>In this chapter, we described how to train a model that generalizes and avoids underfitting and overfitting. We explained how to initialize the weights in different layers. We detailed SGD and review various variants. We recommend using Ranger for small to medium batches and RangerLARS for large batches or, for someone new to training, Adam is well documented and simple to get started. We noted that while operating on large batches can result in higher hardware utilization, small batches may generalize better, and we provided guidance on selecting a batch size. We decomposed the backpropagation algorithm as a series of multiplications and additions, which motivate the need for specialized matrix multipliers in hardware. We provided guidelines to topology design and recommended hyperparameters that data scientists should use in the design and debug stage. We explained how to mitigate memory capacity bottlenecks in the training phase at the expense of added compute. For companies with smaller datasets, we recommended modifying an existing model and fine-tuning it for a particular task. In the next chapter, we explore how to accelerate the training by distributing the computations and memory requirements across various compute nodes.</p>
+
+  <br>
+    
+
+    
+    
+      
+    
+
+  <div class="row wm-article-nav-buttons" role="navigation" aria-label="navigation">
+    
+    <div class="wm-article-nav pull-right">
+      <a href="../ch05/" class="btn btn-xs btn-default pull-right">
+        Next
+        <i class="fa fa-chevron-right" aria-hidden="true"></i>
+      </a>
+      <a href="../ch05/" class="btn btn-xs btn-link">
+        Chapter 5: Distributed Training
+      </a>
+    </div>
+    
+    <div class="wm-article-nav">
+      <a href="../ch03/" class="btn btn-xs btn-default pull-left">
+        <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        Previous</a><a href="../ch03/" class="btn btn-xs btn-link">
+        Chapter 3: Models and Applications
+      </a>
+    </div>
+    
+  </div>
+
+    <br>
+</div>
+
+<footer class="container-fluid wm-page-content">
+  <p>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a> using <a href="https://github.com/gristlabs/mkdocs-windmill">Windmill</a> theme by Grist Labs.</p>
+</footer>
+
+</body>
+</html>

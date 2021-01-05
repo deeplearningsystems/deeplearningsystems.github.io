@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  
+  
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    
+    
+    <link rel="shortcut icon" href="../img/favicon.ico">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+    <title>Chapter 5: Distributed Training - Deep Learning Systems: Algorithms, Compilers, and Processors for Large-Scale Production</title>
+    <link href="../css/bootstrap-3.3.7.min.css" rel="stylesheet">
+    <link href="../css/font-awesome-4.7.0.css" rel="stylesheet">
+    <link href="../css/base.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/highlight.css">
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+    <![endif]-->
+
+    <script src="../js/jquery-3.2.1.min.js"></script>
+    <script src="../js/bootstrap-3.3.7.min.js"></script>
+    <script src="../js/highlight.pack.js"></script>
+    
+    <base target="_top">
+    <script>
+      var base_url = '..';
+      var is_top_frame = false;
+        
+        var pageToc = [
+          {title: "Chapter 5: Distributed Training", url: "#_top", children: [
+              {title: "5.1 Data Parallelism", url: "#51-data-parallelism" },
+              {title: "5.2 Model Parallelism", url: "#52-model-parallelism" },
+              {title: "5.3 Federated Learning", url: "#53-federated-learning" },
+              {title: "5.4 Collective Communication Primitives", url: "#54-collective-communication-primitives" },
+          ]},
+        ];
+
+    </script>
+    <script src="../js/base.js"></script>
+      <script src="../javascripts/config.js"></script>
+      <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script> 
+</head>
+
+<body>
+<script>
+if (is_top_frame) { $('body').addClass('wm-top-page'); }
+</script>
+
+
+
+<div class="container-fluid wm-page-content">
+  <a name="_top"></a>
+    
+
+    
+    
+      
+    
+
+  <div class="row wm-article-nav-buttons" role="navigation" aria-label="navigation">
+    
+    <div class="wm-article-nav pull-right">
+      <a href="../ch06/" class="btn btn-xs btn-default pull-right">
+        Next
+        <i class="fa fa-chevron-right" aria-hidden="true"></i>
+      </a>
+      <a href="../ch06/" class="btn btn-xs btn-link">
+        Chapter 6: Reducing the Model Size
+      </a>
+    </div>
+    
+    <div class="wm-article-nav">
+      <a href="../ch04/" class="btn btn-xs btn-default pull-left">
+        <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        Previous</a><a href="../ch04/" class="btn btn-xs btn-link">
+        Chapter 4: Training a Model
+      </a>
+    </div>
+    
+  </div>
+
+    
+
+    <div id="ch5"></div>
+<h1 id="chapter-5-distributed-training">Chapter 5: Distributed Training</h1>
+<p>The number of computations required to train state-of-the-art models is growing exponentially, <a href="https://openai.com/blog/ai-and-compute/">doubling</a> every <span class="arithmatex">\({\sim}3.4\)</span> months (far below the glory days of Moore's Law 1.5-2 years) [<a href="../biblio/#amodei2018">DH18</a>]. Training a large model can have two primary challenges: (1) the memory required exceeds availability and (2) the time-to-train on a single node can be prohibitively long. To illustrate, training production models commonly used at Google would <a href="https://cacm.acm.org/magazines/2020/7/245702-a-domain-specific-supercomputer-for-training-deep-neural-networks/fulltext">require</a> <span class="arithmatex">\(2\)</span>-<span class="arithmatex">\(16\)</span> months on one dedicated DL processor (TPU v2) [<a href="../biblio/#jouppi2020">JYK+20</a>]. Distributing the computations or the memory requirements among multiple nodes alleviates these challenges and is becoming the norm to train large-scale production models. Hardware designers at Intel, Nvidia, AMD, Google, Graphcore, Cerebras Systems, and others, detailed in Section <a href="../ch07/#ch07.sec7">7.7</a>, have or are developing dedicated, scalable, multinode training platforms.</p>
+<p>Training the popular ResNet-50 model commonly used for image classification <a href="https://arxiv.org/abs/1709.05011">requires</a> about <span class="arithmatex">\(10^{18}\)</span> (<span class="arithmatex">\(1\)</span> exa) operations which is considered small by today's standards and can be trained in <a href="https://developer.nvidia.com/deep-learning-performance-training-inference">under 2 hours</a> with <span class="arithmatex">\(8\)</span> V100 GPUs and in <a href="https://arxiv.org/abs/1903.12650">75 seconds</a> with <span class="arithmatex">\(2048\)</span> V100 GPUs [<a href="../biblio/#you2018">YZH+18</a>; <a href="../biblio/#nvidia-perf2020">Nvi20c</a>; <a href="../biblio/#yamazaki2019">YKT+18</a>]. Training the larger <span class="arithmatex">\(8.3\)</span> billion Megatron-LM model <a href="https://arxiv.org/abs/1909.08053">requires</a> <span class="arithmatex">\(12\times 10^{21}\)</span> (<span class="arithmatex">\(12\)</span> zetta) operations, and can take several days on hundreds of compute nodes [<a href="../biblio/#shoeybi2019">SPP+19</a>]. Training the prodigious 600 billion parameter <a href="https://arxiv.org/abs/2006.16668">GShard</a> takes 4 days on <span class="arithmatex">\(2048\)</span> TPU v3 accelerators [<a href="../biblio/#lepikhin2020">LLX+20</a>].</p>
+<p>The main techniques to distribute a training workload across multiple nodes are data parallelism and model parallelism (including pipeline parallelism), illustrated in Figure <a href="../ch05/#fig:parallelism">5.1</a>, and a hybrid of these. Also, federated learning is a form of data parallelism distributed training in edge (client/IoT) devices. Data and model parallelism benefit from high bandwidth interconnects between the nodes. In data parallelism, a batch (called the global-batch in this chapter) is split among the worker nodes and called the node-batch, with each node working on the same model. The nodes communicate the weight updates. In model parallelism, the model is split among the worker nodes, and the nodes communicate the activations. Model parallelism is typically used when the memory requirement exceeds the node's memory. In hybrid parallelism, data parallelism is used across groups of nodes (super-nodes), and model parallelism is used within each super-node.</p>
+<div id="fig:parallelism"></div>
+<p><img alt="" src="../figures/ch05-01.png" />
+<em>Figure 5.1:</em> (a) In model parallelism the model is distributed among multiple compute nodes. (b) In data parallelism, the training dataset is split among multiple compute nodes and each node has the entire model.</p>
+<p>Data parallelism is more commonly used in industry, but as the sizes of the models are growing, hybrid parallelism is becoming the norm for state-of-the-art models. In the remainder of this chapter, we describe data and model parallelism, their typical usages in data center training, and their limitations. We also discuss federated learning, and we review various communication primitives.</p>
+<div id="ch05.sec1"></div>
+<h2 id="51-data-parallelism">5.1 Data Parallelism</h2>
+<p>Distributed training using data parallelism is widely adopted at hyperscalers to reduce the total time-to-train (TTT). It is the basis for <em>federated learning</em>, detailed in Section <a href="../ch05/#ch05.sec3">5.3</a>, used for edge device distributed training. In data parallelism, each batch is split among the worker nodes. Each worker node computes the gradient with respect to its node-batch and communicates it to a root node or, when no root node is used, with the other worker nodes.</p>
+<p>Synchronous SGD (Sync SGD) requires that all the worker nodes have the same weights at the end of each iteration. Using Sync SGD across various nodes results in precisely the same trained model as using SGD on one node with the global-batch, that is, with a batch that combines all the node-batches. A simple communication strategy is for each worker node to communicate the node gradient to a root node known as the <em>parameter server</em> (PS). The PS aggregates the node gradients, updates the global model weights, and broadcasts (sends) the updated global model to all the worker nodes. The main drawback is the synchronization overhead from waiting to receive the node gradients, in particular, due to straggling (slowest) workers or slower network links. In practice, more advanced communication strategies are used and discussed in Section <a href="../ch05/#ch05.sec4">5.4</a>.</p>
+<p>Asynchronous SGD (Async SGD) does not enforce synchronization before updating the global model and alleviates the synchronization overhead in Sync SGD. However, Async SGD has other challenges. Async SGD requires more tuning of the optimization hyperparameters (<a href="https://arxiv.org/abs/1605.09774">such as</a> the momentum constant), requires more iterations to train, and typically has worse convergence performance than Sync SGD when the number of worker nodes is higher than 8 [<a href="../biblio/#mitliagkas2016">MZH+16</a>]. The convergence is affected because the global model receives stalled (older and less relevant) node gradients. Furthermore, Async SGD does not match single-node SGD performance, and therefore it is more difficult to debug. Async SGD (unlike Sync SGD) typically does not scale past <span class="arithmatex">\(8\)</span> (and often 2 or 4 is the limit) nodes. An Async-Sync SGD hybrid approach can <a href="https://arxiv.org/abs/1708.05256">work</a> where the nodes are clustered in up to 8 groups. Updates within a group are synchronous, and updates between groups are asynchronous. Going beyond <span class="arithmatex">\(8\)</span> groups reduces performance. The main exception where Async is used across several nodes with minimal impact is for the embedding layer in large recommender systems (and sometimes the layer immediately after) as the updates only affect a limited subset of embedding entries. Note that in the Sync SGD and Async SGD literature and in this section, the term <em>SGD</em> is typically an alias for all the extensions of SGD discussed in Section <a href="../ch04/#ch04.sec3">4.3</a>, such as SGDM, Adam, and LARS. The rest of this section focuses on Sync SGD.</p>
+<p>Ideally, the TTT is reduced proportionally with the increased number of compute nodes known as perfect linear scaling. That is, doubling the number of nodes halves the TTT. However, there are algorithmic and communication challenges that prevent perfect scaling:</p>
+<ol>
+<li>
+<p>Large batches require a few additional training epochs to converge to a flat minimum.</p>
+</li>
+<li>
+<p>There is a limit on the maximum batch size that decreases the training iterations.</p>
+</li>
+<li>
+<p>There is higher communication overhead with more nodes.</p>
+</li>
+</ol>
+<p>The methodologies below mitigate some of these challenges.</p>
+<p>A large global-batch is essential so that the node-batch is sufficiently large for high compute utilization among the worker nodes. However, there is a limit on the maximum batch size that decreases the training iterations. Experimentation with careful LR turning is required to find that batch size, as discussed in Sections <a href="../ch04/#ch04.sec3">4.3</a> and <a href="../ch04/#ch04.sec5.sub4">4.5.4</a>. Also, using an optimizer more robust to large-batches, such as LAMB, and a warmup phase is recommended.</p>
+<p>Communication overhead also hurts the scaling performance: the more nodes and more data, the higher the communication time. After a point, the execution time is dominated by communication time and cancels out the savings from the additional compute. The following reduces this overhead (these techniques also apply to federated learning):</p>
+<ol>
+<li>
+<p>hiding (overlapping) the communication between nodes by the computation within a node (node-to-node high-bandwidth is beneficial);</p>
+</li>
+<li>
+<p><a href="https://arxiv.org/abs/1712.01887">compressing the gradients</a> before communicating them (related work used <a href="https://www.microsoft.com/en-us/research/publication/1-bit-stochastic-gradient-descent-and-application-to-data-parallel-distributed-training-of-speech-dnns/"><span class="arithmatex">\(1\)</span> bit</a> and <a href="https://arxiv.org/abs/1705.07878"><span class="arithmatex">\(2\)</span> bits</a> to communicate the gradients) [<a href="../biblio/#lin2018">LHM+18</a>; <a href="../biblio/#seide2014">SFD+14</a>; <a href="../biblio/#wen2017">WXY+17</a>];</p>
+</li>
+<li>
+<p>computing more <a href="https://arxiv.org/abs/1808.07217">local iterations</a> before synchronizing;</p>
+</li>
+<li>
+<p>ignoring stagnant nodes and updating the global gradient using <span class="arithmatex">\({\sim} 95\%\)</span> of the nodes (this is not possible with some communication primitives); and</p>
+</li>
+<li>
+<p><a href="https://arxiv.org/abs/1809.10505">sparsifying the gradients</a>, that is, only transmitting the largest magnitude gradients and accumulating the rest locality [<a href="../biblio/#alistarh2018">AHJ+18</a>].</p>
+</li>
+</ol>
+<p><a href="https://arxiv.org/abs/1709.05011">You et al.</a> achieved extensive scaling using some of these techniques. They partitioned a <span class="arithmatex">\(32K\)</span> batch size using <span class="arithmatex">\(1K\)</span> CPU nodes and achieved the fastest ResNet-50 TTT at the time [<a href="../biblio/#you2018">YZH+18</a>]. Similarly, <a href="https://arxiv.org/abs/1904.00962">You et al.</a> achieved record scaling and TTT on the BERT model on a TPUv3 Pod (1024 chips) [<a href="../biblio/#you2020">YLR+20</a>]. Today, ResNet-50 can be trained in several days on one V100 GPU node or in <span class="arithmatex">\({\sim}2\)</span> minutes (<span class="arithmatex">\({\sim}1\)</span> epoch per second on ImageNet-<span class="arithmatex">\(1\)</span>k) <a href="https://arxiv.org/abs/1811.05233">using</a> <span class="arithmatex">\(3456\)</span> V100 GPU nodes or <a href="https://arxiv.org/abs/1811.06992">using</a> a TPUv3 Pod with no accuracy drop [<a href="../biblio/#mikami2019">MSU+19</a>; <a href="../biblio/#ying2018">YKC+18</a>].</p>
+<div id="ch05.sec2"></div>
+<h2 id="52-model-parallelism">5.2 Model Parallelism</h2>
+<p>The adoption of model parallelism in production is expanding as the size of the models (and the size of the embedding layers in recommenders) continues to grow, and the memory required for training transcends the capacity of a single GPU or accelerator node. Today, models with hundreds of millions of weights are common in production, and new models are approaching <a href="https://arxiv.org/abs/2006.16668">one trillion</a> weights [<a href="../biblio/#lepikhin2020">LLX+20</a>].</p>
+<p>In model parallelism, the model (the weights) is partitioned and distributed among the nodes. There are two main partitioned strategies: parallel layers and sequential (pipeline) layers, the latter one shown in Figure <a href="../ch05/#fig:parallelism">5.1</a>b. In both strategies, each node processes the entire batch and communicates the activation in the forward propagation and the activation gradients in the backward propagation. Partitioning the layers with a balanced load (known as <em>device placement</em>) is an NP-complete problem. <a href="https://arxiv.org/abs/1806.03377">Dynamic programming</a> and RL can improve device placement [<a href="../biblio/#harlap2018">HNP+18</a>; <a href="../biblio/#mirhoseini2018">MGP+18</a>]. Optimal device placement is a topic of ongoing research. Other less common strategies are <a href="https://arxiv.org/abs/1712.04432">partition</a> <a href="https://dl.acm.org/doi/10.1145/3295500.3356207">across</a> <a href="https://arxiv.org/abs/1807.05358">channels</a> or partition across <a href="https://openreview.net/pdf?id=S1Yt0d1vG">spatial axes</a> in CNNs using a modified convolution operator [<a href="../biblio/#gholami2018">GAJ+18</a>; <a href="../biblio/#dryden2019">DMM+19</a>; <a href="../biblio/#jia2018-c">JZA18</a>; <a href="../biblio/#jin2018">JGK18</a>].</p>
+<p>Model parallelism with parallel layers runs simultaneously on separate nodes and occasionally communicate their activations. The <a href="https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf">original</a> design of the legendary AlexNet topology used this approach with two GPUs to mitigate the memory limitations of a single GPU [<a href="../biblio/#krizhevsky2012">KSH12</a>]. The current model parallelism algorithms can often scale up to <span class="arithmatex">\(4\)</span> or <span class="arithmatex">\(8\)</span> nodes with careful tuning. Embedding layers in recommender systems, such as Facebook's <a href="https://arxiv.org/abs/2003.09518">DLRMs</a>, can scale to more nodes [<a href="../biblio/#naumov2020">NKM+20</a>].</p>
+<p>When dozens or hundreds of nodes are available to train large size models, a hybrid model-data parallelism can be optimal. This hybrid approach was used by Google to train the <span class="arithmatex">\(11\)</span> billion weights <a href="https://arxiv.org/abs/1910.10683">T5-Transformer</a> on TPUs-v3 and by Nvidia to train the <span class="arithmatex">\(8.3\)</span> billion weights <a href="https://arxiv.org/abs/1909.08053">Megatron-LM</a> model on V100 GPUs [<a href="../biblio/#raffel2019">RSR+19</a>; <a href="../biblio/#shoeybi2019">SPP+19</a>]. The <a href="https://github.com/tensorflow/mesh">Mesh TensorFlow</a> (mtf) library supports hybrid parallelism and <a href="https://github.com/tensorflow/mesh/blob/master/mesh_tensorflow/auto_mtf/README.md">uses</a> an <a href="https://en.wikipedia.org/wiki/Integer_programming">integer linear programming</a> (ILP) algorithm to determine the partition [<a href="../biblio/#shazeer2018">SCP+18</a>].</p>
+<div id="ch05.sec2.sub1"></div>
+<h3 id="521-pipeline-parallelism">5.2.1 Pipeline Parallelism</h3>
+<p>Pipeline parallelism is a type of model parallelism (although some literature treats it as separate). Each layer or group of sequential layers is placed on a separate node. Consecutive batches are put into the pipeline to keep it full. The communication between the nodes is limited to the activations of the layers where the partitions occur and their respective activation gradients. The downside of pipeline parallelism is that the updates use stalled weights with similar issues as Async SGD. Chen et al. <a href="https://arxiv.org/abs/1809.02839">proposed</a> using the momentum to estimate the weight and scaled to 4 GPU nodes with no convergence degradation [<a href="../biblio/#chen2019">CYC19</a>]. Cerebras System <a href="https://arxiv.org/abs/2003.11666">proposed</a> a linear predictor to mitigate staleness and scaled to <span class="arithmatex">\(169\)</span> nodes on the ResNet-110 model with the CIFAR-10 dataset, a small research dataset [<a href="../biblio/#kosson2020">KCV+20</a>]. Additional algorithmic advancements are required to mature pipeline parallelism to scale to hundreds of nodes on production models and datasets.</p>
+<p>There is limited support for efficient pipeline parallelism (and model parallelism in general) in the major frameworks. To improve pipelining, Google introduced <a href="https://github.com/tensorflow/lingvo/blob/master/lingvo/core/gpipe.py">GPipe</a> [<a href="../biblio/#huang2019">HCB+19</a>]. GPipe splits a batch into micro-batches to reduce idle time in the model pipeline and accumulates the gradients across the micro-batches to maintain statistical consistency. The user specifies how to partition the model, that is, which portions of the model are allocated to which nodes. Similarly, Microsoft uses <a href="https://arxiv.org/abs/1806.03377">PipeDream</a> and DeepSpeed for GPU pipelining [<a href="../biblio/#harlap2018">HNP+18</a>]. Graphcore <a href="https://docs.graphcore.ai/projects/tf-model-parallelism/en/latest/pipelining.html#optimizing-the-pipeline">supports</a> pipelining with gradient checkpoint (discussed in Section <a href="../ch04/#ch04.sec7">4.7</a>).</p>
+<div id="ch05.sec3"></div>
+<h2 id="53-federated-learning">5.3 Federated Learning</h2>
+<p>Federated learning is a decentralized learning methodology <a href="https://arxiv.org/abs/1602.05629">introduced</a> by Google and is an extension to data parallelism [<a href="../biblio/#mcmahan2017">MMR+17</a>]. The goal of federated learning is to use a large number of local client devices, such as mobile phones, to train a model without transmitting the training data. Federated learning is gaining adoption in the industry due to the data privacy and network bandwidth benefits. It is used to train the word predictor in <a href="https://arxiv.org/abs/1811.03604">Google Gboard</a> and URL predictor in <a href="https://florian.github.io/federated-learning-firefox/">Firefox</a> [<a href="../biblio/#hard2019">HRM+19</a>; <a href="../biblio/#hartmann2018">Har18</a>].</p>
+<p>In federated learning, as illustrated in Figure <a href="../ch05/#fig:federated">5.2</a>, an untrained or partially trained global model is pushed from a centralized global server to a large number of local client devices. Each device trains the model for multiple epochs using its local data and then transmits the updated local model to the central server within a given time window. All the devices train for the same local epochs and with the same batch size. The number of local iterations per epoch varies as it depends on the size of the local training dataset. The global server updates the global model as an average of the local models (more on this below). The server then broadcasts this new global model back to the client devices, and the process repeats. The number of epochs, batch size, and number of clients requires tuning for best performance.</p>
+<div id="fig:federated"></div>
+<p><img alt="" src="../figures/ch05-02.png" />
+<em>Figure 5.2:</em> Federated learning. (a) An untrained global model (represented by the green dot) is broadcasted to the client devices. (b) The training happens in each client device, and only the updated client model (represented by the various geometric figures) is transmitted to the cloud to update the global model. (c) The updated global model (represented by the gray pentagon) is broadcasted to all the client devices, and the process repeats. Based on [<a href="../biblio/#sasaki2019">Sas19</a>].</p>
+<p>Federated learning is especially useful when the client device has sensitive or private data the user does not want to share with an external server, or when the cost or the power to transmit the training data is higher than processing locally. Examples include mobile phone apps, healthcare patient data, companies' emails, and manufacturing equipment data. Some organizations (e.g., a hospital) can be thought of as a device client among a group (e.g., a group of hospitals) in federated learning.</p>
+<p>Federated learning is a generalized form of Sync SGD but, rather than synchronizing after every iteration, the weights are synchronized after some local epochs. The more infrequent the synchronizations, the more likely the model has convergence challenges. However, frequent synchronizations consume significant network bandwidth, which is prohibited in some devices. The primary challenge of federated learning is to reduce the synchronization frequency (by increasing the number of local epochs) and maintain the expected training convergence.</p>
+<p>Two additional challenges can affect convergence. First, the data in each device is typically not independent and identically distributed (IID); data within a client is more similar than data across clients, and the number of samples between clients varies. This non-IID violates the guidance to randomize the order of the samples in the training dataset so each batch has IID samples.</p>
+<p>Second, the local devices have heterogeneity both in computational capacity and network reliability across devices. In particular, mobile phones vary significantly in memory, compute, and network connectivity with <a href="https://atscaleconference.com/videos/scale-2018-applied-machine-learning-at-facebook-an-infrastructure-perspective/">approximately two-thirds</a> of operating mobile phones in the world being over six years old [<a href="../biblio/#hazelwood2018">Haz18</a>].</p>
+<p>The server uses an average of the local models weighted by the number of training samples in each device to compute a global model update. Alternatively, a <a href="https://arxiv.org/abs/1812.06127">more stable approach</a> is to randomly choose the clients (assuming a large pool of candidates) with probability proportional to the number of training samples in each device, and use an unweighted average to compute the global model update [<a href="../biblio/#li2019">LSZ+19</a>].</p>
+<p>A federated learning system uses more clients than needed to train local models to mitigate device and network unreliability. A system may assign <span class="arithmatex">\(300\)</span> devices to train local models but only needs to collect local models from <span class="arithmatex">\(256\)</span> devices. Assuming each device uses a local batch size of <span class="arithmatex">\(16\)</span>, then the global batch size is <span class="arithmatex">\(256\times 16=4096\)</span>, which may be the limit (the largest batch size that converges to an adequate minimum) for some topologies.</p>
+<p>A simple technique to improve robustness to both non-IID batches and local models that are unable to complete the local number of epochs is to use a <a href="https://arxiv.org/abs/1812.06127">proximal term</a>. This term is a small adaptable penalty in the objective function for significant deviations from the global model. Note that <a href="https://arxiv.org/abs/1812.06127">it is better</a> to communicate a local model that has not completed the requested epochs than to ignore it [<a href="../biblio/#li2019">LSZ+19</a>].</p>
+<p>Communication overhead <a href="https://arxiv.org/abs/1610.05492">can be reduced</a> by quantizing with rotations and communicating the weight changes [<a href="../biblio/#konecny2017">KMY+17</a>]. A randomly applied mask can further reduce the number of communicated parameters. Traditional data compression techniques can also be used. These techniques also apply to conventional Sync SGD data parallelism to decrease network traffic but are more critical in federated learning due to the higher communication cost. Optimization techniques, such as LAMB and RangerLARS, used in data centers, can be applied to federated learning to increase the number of client devices and accelerate training. Also, TensorFlow <a href="https://www.tensorflow.org/federated/">provides</a> an API to simulate federated learning with a couple of additional lines of code.</p>
+<h4 id="areas-of-caution">Areas of Caution</h4>
+<p>Three areas of caution are as follows:</p>
+<ol>
+<li>
+<p>Training and communicating a model can be expensive (in terms of battery and data consumption). These expenses are mitigated by limiting training to periods when the device is plugged in and idled and communicating the local model when the device is on a free wireless connection.</p>
+</li>
+<li>
+<p>Despite not transmitting the training data, some information about the local training data can be <a href="https://arxiv.org/abs/1702.07464">extracted</a> from local models [<a href="../biblio/#hitaj2017">HAP17</a>]. To preserve privacy, for instance, Google uses <a href="https://dl.acm.org/doi/10.1145/3133956.3133982">secure aggregation</a> where the local models are only unencrypted and averaged when multiple models become available to the server [<a href="../biblio/#bonawitz2017">BIK+17</a>]. OpenMined developed <a href="https://github.com/OpenMined/PySyft">PySyft</a> on top of PyTorch to improve privacy. Section <a href="../ch10/#ch10.sec3">10.3</a> discusses other ongoing work to maintain privacy.</p>
+</li>
+<li>
+<p>Older devices with limited computational and memory capacities, and devices in remote areas may not proportionally contribute to the overall training. This imbalance results in a model that learns characteristics biased toward more affluent populations. Further work is required to mitigate this.</p>
+</li>
+</ol>
+<div id="ch05.sec4"></div>
+<h2 id="54-collective-communication-primitives">5.4 Collective Communication Primitives</h2>
+<p>There are various communication functions, known as collective communication primitives, and library implementations. These primitives are used in data parallelism to communicate and then aggregate the local gradients, in model parallelism to communicate the activations and their respective gradients, and in transitioning between model and data parallelism to rearrange the data properly. Some common collective communication primitives are as follows:</p>
+<ul>
+<li>
+<p><strong>Broadcast</strong>: <span class="arithmatex">\(M\)</span> elements in the root node are copied to the other <span class="arithmatex">\(P-1\)</span> processor nodes, as shown in Figure <a href="../ch05/#fig:primitives">5.3</a>a.</p>
+</li>
+<li>
+<p><strong>Scatter</strong>: <span class="arithmatex">\(M\)</span> elements in the root node are partitioned, and each partition with <span class="arithmatex">\(M/(P-1)\)</span> elements is copied to a different processor node, as shown in Figure <a href="../ch05/#fig:primitives">5.3</a>b.</p>
+</li>
+<li>
+<p><strong>Reduce</strong>: the root node receives <span class="arithmatex">\(M\)</span> elements from each of the others <span class="arithmatex">\(P-1\)</span> processor nodes and performs a reduction operation, such as sum, maximum, minimum, mean, or product, across each of the <span class="arithmatex">\(P-1\)</span> elements.</p>
+</li>
+<li>
+<p><strong>Gather</strong>: the root node receives <span class="arithmatex">\(M/(P-1)\)</span> elements from each of the other <span class="arithmatex">\(P-1\)</span> processor nodes and concatenates them (equivalent to Figure <a href="../ch05/#fig:primitives">5.3</a>b with the arrows reversed).</p>
+</li>
+<li>
+<p><strong>AllReduce</strong>: Equivalent result as Reduce + Broadcast.</p>
+</li>
+<li>
+<p><strong>AllToAll</strong>: <span class="arithmatex">\(M\)</span> elements in each node are partitioned, and each partition with <span class="arithmatex">\(M/(P-1)\)</span> elements is copied to a different processor node where the received partitions are concatenated. Equivalent result to Scatter and Gather for all nodes, as shown in Figure <a href="../ch05/#fig:primitives">5.3</a>c.</p>
+</li>
+<li>
+<p><strong>AllGather</strong>: Equivalent result as Gather + Broadcast.</p>
+</li>
+<li>
+<p><strong>ReduceScatter</strong>: Equivalent result as Reduce + Scatter.</p>
+</li>
+</ul>
+<p>The AllReduce, AllToAll, and AllGather primitives do not require a dedicated root node. While their end-result is equivalent to sequentially using two simpler primitives, they typically use more efficient implementations. Later in this section, we analyze various AllReduce implementations.</p>
+<div id="fig:primitives"></div>
+<p><img alt="" src="../figures/ch05-03.png" />
+<em>Figure 5.3:</em> (a) The broadcast primitive copies a set of elements in the root node to the other nodes. (b) The scatter primitive copies a separate partition of a set of elements in the root node to the other nodes. Note that reversing the arrows results in the gather primitive. (c) The all-to-all primitive (also known as transpose) copies a separate partition of a set of elements in each node to the other nodes, where the received partitions are concatenated.</p>
+<p>The MPICH, OpenMPI, Intel MPI, and MVAPICH libraries implement primitives using the Message Passing Interface (MPI) standard specifications. The MPI is a library specification that operates at the <a href="https://en.wikipedia.org/wiki/OSI_model#Layer_4:_Transport_Layer">transport layer</a> implemented by MPICH and other libraries in C/C++ and Fortran with message-passing standards and APIs. In the MPI specification, each processor node has a unique address space. The literature on collective communication primitives is extensive, including their <a href="https://dl.acm.org/doi/10.1177/1094342005051521">optimizations</a> for clusters connected by switched networks and a <a href="https://dl.acm.org/doi/10.1145/3295500.3356176">study</a> of MPI usages [<a href="../biblio/#thakur2005">TRG05</a>; <a href="../biblio/#laguna2019">LMM+19</a>].</p>
+<p>Libraries that offer higher-level communication functions using existing primitives libraries or reimplementing them are: <a href="https://arxiv.org/abs/1802.05799">Horovod</a>, Nvidia's <a href="https://developer.nvidia.com/nccl">NCCL</a>, Facebook's <a href="https://github.com/facebookincubator/gloo">Gloo</a>, Intel's <a href="https://github.com/oneapi-src/oneCCL">oneCCL</a>, and <a href="https://arxiv.org/abs/1802.08021">SparCML</a> and <a href="https://arxiv.org/abs/1910.04940">Blink</a> from academia [<a href="../biblio/#sergeev2018">SDB18</a>; <a href="../biblio/#renggli2019">RAA+19</a>; <a href="../biblio/#wang2019">WVP+19</a>]. Horovod has broad industry adoption for GPU and CPU distributed training. It is supported by various DL libraries, including TensorFlow, PyTorch, and MXNet. Horovod <a href="https://horovod.readthedocs.io/en/latest/install_include.html">uses</a> NCCL for GPUs and oneCCL, MPI, and Gloo for CPUs. Uber developed and contributed Horovod to the <a href="https://lfai.foundation/projects/horovod/">LF AI foundation</a>.</p>
+<p>The most common primitives used in distributed training are (in this order) AllReduce, AllToAll, and AllGather. AllReduce is used to aggregate the local gradients in data parallelism. AllToAll is used to exchange the activations and activation gradients in model parallelism and to transition from model to data parallelism. AllGather is used to concatenate activations or gradients in a specified order, for instance, in <a href="https://arxiv.org/abs/2006.16668">Gshard</a> to change a sharded (broken) tensor to a replicated tensor [<a href="../biblio/#lepikhin2020">LLX+20</a>].</p>
+<p>In Sync SGD data parallelism, the end result of AllReduce is for all the nodes to receive the aggregated sum of all the local weight gradients; that is, the reduction happens across the nodes. For instance, during the backpropagation of a typical convolution layer with a 4D weight gradient tensor (number of kernels, number of channels, kernel height, and kernel width), the AllReduce primitive aggregates the 4D tensors across all the nodes and broadcasts the sum. In Sync SGD, AllReduce is necessary to ensure the weights across all the nodes are the same at the end of each training iteration. AllReduce algorithms differ in the specific mechanism to achieve this Reduce+Broadcast, but the results are the same.</p>
+<p>In the following analysis, we examine four AllReduce algorithms based on the number of nodes, latency, and bandwidth: parameter server (PS), AllReduce-Ring, AllReduce-Butterfly, and AllReduce-Tree, shown in Figure <a href="../ch05/#fig:allreduce">5.4</a>. We assume there are <span class="arithmatex">\(P\)</span> nodes connected in a <span class="arithmatex">\(1\)</span>-hop all-to-all (fully connected) physical network: each node-to-node link has the same latency <span class="arithmatex">\(L\)</span> independent of how many nodes are communicating. We also assume the links are bidirectional with a per directional bandwidth of <span class="arithmatex">\(B\)</span> between any two nodes, and the nodes can simultaneously send and receive messages without affecting the unidirectional performance. The terms <em>node</em> and <em>processor</em> are used interchangeably, and <em>rank</em> refers to the node ID from <span class="arithmatex">\(0\)</span> to <span class="arithmatex">\(P-1\)</span>. Note that the physical network topology impacts which algorithm is optimal. For instance, running an AllReduce-Ring algorithm on a system with a ring physical network topology is much better than an AllReduce-Butterfly algorithm on the same ring physical topology since the load would not be balanced between links. Section <a href="../ch07/#ch07.sec5">7.5</a> discusses the physical interconnects and physical network topologies.</p>
+<div id="fig:allreduce"></div>
+<p><img alt="" src="../figures/ch05-04.png" />
+<em>Figure 5.4:</em> Various AllReduce algorithms.</p>
+<p>Note the difference between network latency and bandwidth. The latency <span class="arithmatex">\(L\)</span> is the time to communicate one byte from one node to another. The bandwidth <span class="arithmatex">\(B\)</span> is the number of bytes that can move through the network per second (the width of the network pipeline) per direction. The total execution time <span class="arithmatex">\(T\)</span> to transfer a message of <span class="arithmatex">\(M\)</span> bytes from one node to another node is: </p>
+<div class="arithmatex">\[T = L + M/B = L + T',\]</div>
+<p>where <span class="arithmatex">\(T'= M/B\)</span> is the time it takes to move the data without accounting for the latency. The above equation ignores the software overhead and the time to aggregate (sum) the <span class="arithmatex">\(M\)</span> elements by the receiver node.</p>
+<p>PS performs a reduce-sum and then a broadcast operation, which requires two steps. The total execution time is: </p>
+<div class="arithmatex">\[\begin{aligned} T_{\mathit{PS}} &amp; = T_{\mathit{reduce}} + T_{\mathit{bcast}} \\ &amp; = (L + T') + (L + T') \\ &amp; = 2\cdot(L + T').\end{aligned}\]</div>
+<p>The data moves in one direction, and most of the links in the fully connected physical network are unused.</p>
+<p>The AllReduce-Ring requires two steps in a <span class="arithmatex">\(1\)</span>-hop all-to-all physical network. In step <span class="arithmatex">\(1\)</span>, each node breaks down the message into <span class="arithmatex">\(P\)</span> smaller packages and sends a message of size <span class="arithmatex">\(M/P\)</span> to each of the other <span class="arithmatex">\(P-1\)</span> nodes, and the receiver nodes aggregates the messages. In step <span class="arithmatex">\(2\)</span>, each node broadcasts the aggregated message of size <span class="arithmatex">\(M/P\)</span> to each of the other <span class="arithmatex">\(P-1\)</span> nodes. The total execution time is: </p>
+<div class="arithmatex">\[T_{\mathit{ring}} = 2\cdot(L + T'/P).\]</div>
+<p>The data moves bidirectionally using all the links in the fully connected physical network.</p>
+<p>The AllReduce-Tree performs a reduction and a broadcast operation both in a tree pattern, which requires <span class="arithmatex">\(2\cdot\log(P)\)</span> steps (log is base <span class="arithmatex">\(2\)</span> and a floor operator). The total execution time is: </p>
+<div class="arithmatex">\[T_{\mathit{tree}} = 2\cdot\log(P) \cdot(L + T').\]</div>
+<p>Using two trees simultaneously in each link reduces the time, with each tree working on half the data. Each package is of size <span class="arithmatex">\(M/2\)</span>. A similar approach is the <a href="https://www.sciencedirect.com/science/article/pii/S0167819109000957">Two-Tree algorithm</a>, also known as Double Binary Tree [<a href="../biblio/#sanders2009">SST09</a>]. The total execution time using bidirectional links is: </p>
+<div class="arithmatex">\[T_{\mathit{tree2}} = 2\cdot\log(P) \cdot(L + T'/2).\]</div>
+<p>Most of the links in the fully connected, physical network are unused.</p>
+<p>The AllReduce-Butterfly requires <span class="arithmatex">\(\log(P)\)</span> steps. For simplicity, we assume <span class="arithmatex">\(P\)</span> is a power of <span class="arithmatex">\(2\)</span>. During each step, a package is exchanged with a neighbor in a butterfly pattern. More precisely, at step <span class="arithmatex">\(s\in[0, \log(P)-1]\)</span>, node <span class="arithmatex">\(p\in[0,P-1]\)</span> sends and receives a package of size <span class="arithmatex">\(M\)</span> to node <span class="arithmatex">\(p+\frac{P}{2^{s+1}}\)</span> <span class="arithmatex">\(&lt;P\)</span>. The total execution time using bidirectional links is: </p>
+<div class="arithmatex">\[T_{bf} = \log(P) \cdot(L + T').\]</div>
+<p>The analysis shows that for homogeneous all-to-all physical topology, the AllReduce-Ring has the lowest execution time when <span class="arithmatex">\(P&gt;2\)</span>. This homogeneity is typical for <span class="arithmatex">\(1\)</span>-hop connections, where two nodes only go through one network switch to communicate, such as a rack of CPUs or a DGX-2 system. Most CPU rack designs rely on the top-of-rack (ToR) switch even for intra-chassis CPU message passing. For chassis with internal switches, the analysis above only applies to CPUs within the chassis. In a DGX-2 system, GPU nodes have <span class="arithmatex">\(300\)</span> GB/s bidirectional NVLink links (<span class="arithmatex">\(150\)</span> GB/s in each direction) (note that the GPU nodes in a DGX-2 system have an additional, albeit smaller, <span class="arithmatex">\(32\)</span> GB/s bidirectional link through PCIe).</p>
+<p>Large-scale distributed training across nodes that require multiple hops usually involves multiple communication primitives. Otherwise, the largest latency and smallest bandwidth link would determine the primitive's latency and bandwidth. A common approach to scale, for instance, across multiple DGX-2 systems is to use AllReduce-Ring within each DGX-2, then AllReduce-Ring across the DGX-2 systems, and then broadcast within each DGX-2. A similar approach can be employed with racks of CPU servers.</p>
+<p>Wang et al. <a href="https://arxiv.org/pdf/1910.04940.pdf">developed</a> a collective communication library known as Bling that efficiently uses heterogeneous links [<a href="../biblio/#wang2019">WVP+19</a>]. Bling uses a collection of spanning trees to find various paths to pass messages in parallel and has shown to outperform other libraries in the presence of heterogeneous network links.</p>
+<p>In this chapter, we addressed three challenges to training some models: the required memory exceeds availability, the time-to-train is prohibitively long, and the training data is scattered across multiple edge devices. We detailed data and model parallelism. Data parallelism is more commonly used in industry and is supported by the major frameworks. However, some impediments include memory constraints for prodigious models, high communication latency for large models, large global-batch to scale, and small node-batch inefficiencies. Model parallelism can be used for large models, but usually, the scaling is limited to eight nodes, the optimal way to split the model is an NP-complete problem. There is limited support in the major frameworks for efficient model parallelism. Pipeline parallelism suffers from stalled weights, and we discussed some work to partially mitigate this. Hybrid parallelism is becoming the norm for state-of-the-art models. Data parallelism is used across groups of super-nodes, and model parallelism is used within each super-node with 4-8 nodes per super-node. In the next chapter, we explore the various formats to represent numerical values used in production and those in academic exploration as well as compression techniques to reduce the memory footprint of models.</p>
+
+  <br>
+    
+
+    
+    
+      
+    
+
+  <div class="row wm-article-nav-buttons" role="navigation" aria-label="navigation">
+    
+    <div class="wm-article-nav pull-right">
+      <a href="../ch06/" class="btn btn-xs btn-default pull-right">
+        Next
+        <i class="fa fa-chevron-right" aria-hidden="true"></i>
+      </a>
+      <a href="../ch06/" class="btn btn-xs btn-link">
+        Chapter 6: Reducing the Model Size
+      </a>
+    </div>
+    
+    <div class="wm-article-nav">
+      <a href="../ch04/" class="btn btn-xs btn-default pull-left">
+        <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        Previous</a><a href="../ch04/" class="btn btn-xs btn-link">
+        Chapter 4: Training a Model
+      </a>
+    </div>
+    
+  </div>
+
+    <br>
+</div>
+
+<footer class="container-fluid wm-page-content">
+  <p>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a> using <a href="https://github.com/gristlabs/mkdocs-windmill">Windmill</a> theme by Grist Labs.</p>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  
+  
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    
+    
+    <link rel="shortcut icon" href="../img/favicon.ico">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+    <title>Chapter 2: Building Blocks - Deep Learning Systems: Algorithms, Compilers, and Processors for Large-Scale Production</title>
+    <link href="../css/bootstrap-3.3.7.min.css" rel="stylesheet">
+    <link href="../css/font-awesome-4.7.0.css" rel="stylesheet">
+    <link href="../css/base.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/highlight.css">
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+    <![endif]-->
+
+    <script src="../js/jquery-3.2.1.min.js"></script>
+    <script src="../js/bootstrap-3.3.7.min.js"></script>
+    <script src="../js/highlight.pack.js"></script>
+    
+    <base target="_top">
+    <script>
+      var base_url = '..';
+      var is_top_frame = false;
+        
+        var pageToc = [
+          {title: "Chapter 2: Building Blocks", url: "#_top", children: [
+              {title: "2.1 Activation Functions", url: "#21-activation-functions" },
+              {title: "2.2 Affine", url: "#22-affine" },
+              {title: "2.3 Convolution", url: "#23-convolution" },
+              {title: "2.4 Pooling", url: "#24-pooling" },
+              {title: "2.5 Recurrent Units", url: "#25-recurrent-units" },
+              {title: "2.6 Normalization", url: "#26-normalization" },
+              {title: "2.7 Embeddings", url: "#27-embeddings" },
+              {title: "2.8 Attention", url: "#28-attention" },
+              {title: "2.9 Dropout", url: "#29-dropout" },
+          ]},
+        ];
+
+    </script>
+    <script src="../js/base.js"></script>
+      <script src="../javascripts/config.js"></script>
+      <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script> 
+</head>
+
+<body>
+<script>
+if (is_top_frame) { $('body').addClass('wm-top-page'); }
+</script>
+
+
+
+<div class="container-fluid wm-page-content">
+  <a name="_top"></a>
+    
+
+    
+    
+      
+    
+
+  <div class="row wm-article-nav-buttons" role="navigation" aria-label="navigation">
+    
+    <div class="wm-article-nav pull-right">
+      <a href="../ch03/" class="btn btn-xs btn-default pull-right">
+        Next
+        <i class="fa fa-chevron-right" aria-hidden="true"></i>
+      </a>
+      <a href="../ch03/" class="btn btn-xs btn-link">
+        Chapter 3: Models and Applications
+      </a>
+    </div>
+    
+    <div class="wm-article-nav">
+      <a href="../ch01/" class="btn btn-xs btn-default pull-left">
+        <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        Previous</a><a href="../ch01/" class="btn btn-xs btn-link">
+        Chapter 1: Introduction
+      </a>
+    </div>
+    
+  </div>
+
+    
+
+    <div id="ch2"></div>
+<h1 id="chapter-2-building-blocks">Chapter 2: Building Blocks</h1>
+<p>There are four main types of NN topologies used in commercial applications: multilayer perceptrons (MLPs), convolution neural networks (CNNs), recurrent neural networks (RNNs), and transformer-based topologies. These topologies are <em>directed graphs</em> with nodes and edges, where a node represents an operator, and an edge represents a data-dependency between the nodes, as shown in Figure <a href="../ch01/#fig:graph">1.5</a>.</p>
+<p>A node, also called primitive (short for primitive function), layer, expression, or kernel, is the building block of a topology. While the number of functions developed by researchers continues to grow, for example, the popular TensorFlow framework supports over 1,000 operators, the number of functions used in commercial applications is comparatively small. Examples of these functions are ReLU, sigmoid, hyperbolic tangent, softmax, GEMM, convolution, and batch normalization.</p>
+<p>There are three types of compute functions: dense linear functions (e.g., GEMM and convolution), nonlinear functions (e.g., ReLU and sigmoid), and reduction functions (e.g., pooling). A dense linear function is typically implemented as a matrix-wise operator and a nonlinear function as an element-wise operator. A reduction function reduces the input vector to one scalar value.</p>
+<p>Matrix-wise operators are compute-intensive and (depending on the hardware and the amount of data reuse) can be compute bound (referred to as Math bound in some GPU literature). Element-wise operators are compute-light and memory bandwidth bound. The inputs to these functions are read from memory, and the results are written back to memory; there is no data reuse.</p>
+<p>A common technique to improve the compute efficiency of a model is to fuse a compute-light element-wise operator into a compute-intensive matrix-wise operator. Thus, the intermediate results are not written to and then read from main memory. The element-wise computations happen immediately after the matrix-wise computations while the data is in the registers or the storage closes to the computing unit. Chapter <a href="../ch08/#ch08">8</a> details this and other techniques to improve the efficiency via software optimizations.</p>
+<p>In this and the next chapter, we follow a bottom-up approach. In this chapter, we introduce the standard primitives in popular models used at hyperscalers. In the next chapter, we discuss the actual models and applications built using these primitives. Readers that prefer a top-down approach may first read Chapter <a href="../ch03/#ch03">3</a> to better understand the types of models and applications before diving into the building blocks in this chapter. A review of the notation introduced in Section <a href="../ch01/#ch01.sec10">1.10</a> can help understand the equations presented in this chapter.</p>
+<div id="ch02.sec1"></div>
+<h2 id="21-activation-functions">2.1 Activation Functions</h2>
+<p>An activation function is a nonlinear function applied to every element of a layer's input tensor. The most popular activation function is the rectified linear unit (ReLU). The ReLU function and its gradient are inexpensive to compute. Some models <a href="https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf">converge faster</a> when the ReLU function is used [<a href="../biblio/#krizhevsky2012">KSH12</a>]. ReLU also <a href="http://proceedings.mlr.press/v15/glorot11a.html">increases sparsity</a> which may provide computational and memory savings [<a href="../biblio/#glorot2011">GBB11</a>].</p>
+<p>The main drawback of ReLU is that the gradients are zero for negative activations, and the corresponding weights do not change during backpropagation. This is known as dying ReLU, and has motivated variants of ReLU, such as the Leaky ReLU (LReLU), <a href="https://arxiv.org/abs/1502.01852">Parametric ReLU</a> (PReLU), <a href="https://arxiv.org/abs/1706.02515">Scaled Exponential Linear Unit</a> (SELU), and the <a href="https://arxiv.org/pdf/1606.08415.pdf">Gaussian Error Linear Unit</a> (GELU) adopted in some attention-based models [<a href="../biblio/#he2015-b">HZR+15</a>; <a href="../biblio/#klambauer2017">KUM+17</a>; <a href="../biblio/#hendrycks2016">HG16</a>]. Another variant is ReLU6, which limits the maximum ReLU output to <span class="arithmatex">\(6\)</span> and may improve the statistical performance when using a small numerical representation. These variants do not always result in superior statistical performance, and experimentation is required to assess the benefits.</p>
+<p>The <span class="arithmatex">\(k\)</span>-Winners-Take-All (<a href="https://openreview.net/forum?id=Skgvy64tvr"><span class="arithmatex">\(k\)</span>-WTA</a>) activation function keeps the largest <span class="arithmatex">\(k\)</span> activations in a layer and zeros out the reminder ones. A different <span class="arithmatex">\(k\)</span> is typically chosen for each layer to maintain a level of constant sparsity ratio (e.g., 80%) across the layers [<a href="../biblio/#xiao2020">XZZ20</a>].</p>
+<p>The sigmoid and hyperbolic tangent (tanh) activation functions, shown in Figure <a href="../ch02/#fig:activations">2.1</a>, are commonly used in RNN models. Their main drawback is that for large positive or negative activations, the gradient is very small. During backpropagation, the product of various small gradients results in vanishing values due to the limited numerical representations in computers. This is known as the vanishing gradient problem. Variants of RNN models less prone to vanishing gradients are discussed in Section <a href="#ch2.sec5">1.5</a>.</p>
+<div id="fig:activations"></div>
+<p><img alt="" src="../figures/ch02-01.png" />
+<em>Figure 2.1:</em> Examples of some activation functions <span class="arithmatex">\(a_j=g(z_j)\)</span> used in DL workloads.</p>
+<p>A benefit of the hyperbolic tangent over the sigmoid function is that it maintains a zero-mean distribution. It should be used over sigmoid except when the desired output is a probability distribution. The sigmoid function is commonly used as the activation function for the output layer in binary classification as the output is between <span class="arithmatex">\(0\)</span> and <span class="arithmatex">\(1\)</span> and can represent a probability.</p>
+<p>The softmax is a generalization of the sigmoid and used for multiclass classification. It uses both element-wise and reduction operators. The output is interpreted as probability distribution with all the values between <span class="arithmatex">\(0\)</span> and <span class="arithmatex">\(1\)</span> and summing to <span class="arithmatex">\(1\)</span>. The <span class="arithmatex">\(i\)</span>th output value can be computed as: </p>
+<div class="arithmatex">\[\hat{y}_i = \frac{e^{z_i}}{\sum_{k=0}^{M-1} e^{z_k}},\]</div>
+<p>where <span class="arithmatex">\(M\)</span> is the number of classes. The activation input <span class="arithmatex">\(\mathbf{z}\)</span> to the softmax layer is called the <em>logit</em> vector or score, which corresponds to the unnormalized model predictions, and should not be confused with the logit (sigmoid) function.</p>
+<p>Applying the exponential function to large logits magnifies the numerical errors. Therefore, it is a common practice to <a href="https://academic.oup.com/imajna/advance-article/doi/10.1093/imanum/draa038/5893596">subtract</a> the maximum logit <span class="arithmatex">\(m\)</span> from all the logits before using the softmax function [<a href="../biblio/#blanchard2020">BHH20</a>]. The result is mathematically equivalent: </p>
+<div class="arithmatex">\[\frac{e^{x-m}}{e^{x-m}+e^{y-m}+e^{m-m}} = \frac{e^x e^{-m}}{(e^x + e^y + e^m)e^{-m}} = \frac{e^x}{e^x + e^y + e^m},\]</div>
+<p>where <span class="arithmatex">\(x\)</span>, <span class="arithmatex">\(y\)</span>, and <span class="arithmatex">\(m\)</span> are three logits.</p>
+<div id="ch02.sec2"></div>
+<h2 id="22-affine">2.2 Affine</h2>
+<p>An affine transformation (also known as fully-connected, feedforward, or GEMM layer) provides a weighted sum of the inputs plus a bias. Figure <a href="../ch02/#fig:affine">2.2</a> illustrates an affine transformation </p>
+<div class="arithmatex">\[z_j^{(l+1)} = \sum_{i=0}^{D^{(l)}-1} w_{ji}^{(l)} a_i^{(l)} + b_j^{(l)} ,\]</div>
+<p>and the subsequent nonlinear activation </p>
+<div class="arithmatex">\[a_j^{(l+1)} = g\left(z_j^{(l+1)}\right).\]</div>
+<p>An affine transformation can be formulated as a general matrix multiply (GEMM) for all the samples in a batch and for all the units in a layer, as shown in the last equation in Section <a href="../ch1./#ch1.sec10">1.</a>. An affine transformation is called a linear primitive in DL literature (slightly abusing the term since a linear function should not have a bias).</p>
+<div id="fig:affine"></div>
+<p><img alt="" src="../figures/ch02-02.png" />
+<em>Figure 2.2:</em> An affine layer and subsequent nonlinear function.</p>
+<p>Using a bias is always recommended even in large networks where a bias term may have a negligible impact on performance; removing the bias has little computational or memory savings. Note that when the affine layer is followed by a batch normalization (BN) layer (discussed in Section <a href="../ch02/#ch02.sec6">2.6</a>), the bias has no statistical impact as BN cancels out the bias.</p>
+<div id="ch02.sec3"></div>
+<h2 id="23-convolution">2.3 Convolution</h2>
+<p>Convolution kernels (commonly called filters) are widely adopted in computer vision and used with 2D images, 3D volumetric images, such as MRI scans, and 3D temporal images or video. Tasks where there is a correlation associated with the spatial or temporal proximity in the input values, such as in images, video, and spectrograms (discussed in Section <a href="../ch02/#ch02.sec4">2.4</a>), can use convolution kernels.</p>
+<p>The term <em>convolution</em> has different meanings in the DL and <a href="https://en.wikipedia.org/wiki/Convolution">signal processing</a> literature. A convolution operator in the DL literature, and the one used in this book, is a <em>cross-correlation</em> operator between the weights and input activations (the input values to the convolutional layer). Each convolution output value is a dot product of the filter and a subset of the input. The entire convolution output is computed by shifting this filter across all the subsets in the input.</p>
+<p>A 1D convolution using one filter follows: </p>
+<div class="arithmatex">\[z^{(l+1)}_i = \sum_{h=0}^{H-1} a^{(l)}_{h+i} w^{(l)}_h + b_i^{(l)} ,\]</div>
+<p>where <span class="arithmatex">\(H\)</span> is the length of filter <span class="arithmatex">\(w^{(l)}\)</span>. This equation can be easily extended to a 2D convolution, which is more common in DL. Typically, multiple filters are used in each layer. Figure <a href="../ch02/#fig:conv">2.3</a> illustrates <span class="arithmatex">\(K\)</span> 1D convolutions and <span class="arithmatex">\(K\)</span> 2D convolutions (the biases are omitted to simplify the figure).</p>
+<div id="fig:conv"></div>
+<p><img alt="" src="../figures/ch02-03.png" />
+<em>Figure 2.3:</em> (a) <span class="arithmatex">\(K\)</span> 1D convolutions and (b) <span class="arithmatex">\(K\)</span> 2D convolutions. The results across all filters are concatenated across a new dimension. Thus, the output tensor of the <span class="arithmatex">\(K\)</span> 2D convolutions has a depth (number of channels) of <span class="arithmatex">\(K\)</span>.</p>
+<p>The output is smaller if the input is not padded or if there is a stride between each filter shift. It is a common practice to extend or pad the input with zeros to enforce that the output size matches the input size (assuming the stride is <span class="arithmatex">\(1\)</span>). Another padding technique is using <a href="https://arxiv.org/abs/1804.07723">partial convolution</a>, which generates a more fitting padding and is discussed elsewhere [<a href="../biblio/#liu2018">LRS+18</a>].</p>
+<p>To demonstrate a 2D convolution, assume, for illustration purposes, a <span class="arithmatex">\(6\times 6\)</span> gray-scaled input tensor (in practice, the input is usually much bigger) and a <span class="arithmatex">\(5\times 5\)</span> filter, as shown in Figure <a href="../ch02/#fig:conv-pad">2.4</a>. The input is padded with zeros to ensure the output size equals the input size. The upper left value of the 2D output array is the dot product of the <span class="arithmatex">\(5\times 5\)</span> filter with the upper-left <span class="arithmatex">\(5\times 5\)</span> pixels in the zero-padded input tensor (marked in red). Note that in this book and the DL literature, the dots product's definition includes the aggregated sum of the Hadamard product (element-wise multiplication) of two 2D arrays. The next output value is computed using the next <span class="arithmatex">\(5\times 5\)</span> values in the input tensor (marked in green). This pattern continues across the entire input array to compute all the output values.</p>
+<div id="fig:conv-pad"></div>
+<p><img alt="" src="../figures/ch02-04.png" />
+<em>Figure 2.4:</em> A 2D convolution operation. The top-left value in the output tensor (right) is the dot product of the values in the filter (center) with the upper left values in input tensor (left) in the red square. The input tensor is first zero-padded so the output tensor height and width dimensions equal those of the input tensor. Credit: <a href="https://www.linkedin.com/in/joanne-y-200ba3114/">Joanne Yuan</a>.</p>
+<p>An <span class="arithmatex">\(H\times W\)</span> color image has <span class="arithmatex">\(3\)</span> channels (red, green, blue), also known as feature channels or tensor depth. The dimension of the image is represented as <span class="arithmatex">\(3\times H\times W\)</span>. The filters have the same number of channels as the input, as illustrated in Figure <a href="../ch02/#fig:conv-ch">2.5</a>. Assuming <span class="arithmatex">\(K\)</span> <span class="arithmatex">\(5\times 5\)</span> filters with <span class="arithmatex">\(3\)</span> channels (represented as <span class="arithmatex">\(3\times 5\times 5\)</span>), each one of the <span class="arithmatex">\(K\)</span> 2D convolutions is the dot product between a <span class="arithmatex">\(3\times 5\times 5\)</span> filter and all the <span class="arithmatex">\(3\times 5\times 5\)</span> subsets of the input shifted across the height and width. In 2D convolution, the filters do not shift across the depth (channels). Note that filter sizes are often described only by their height and width; the depth is inferred: it is the number of channels of the input tensor.</p>
+<div id="fig:conv-ch"></div>
+<p><img alt="" src="../figures/ch02-05.png" />
+<em>Figure 2.5:</em> <span class="arithmatex">\(K\)</span> 2D convolutions with an <span class="arithmatex">\(H\times W\)</span> input with <span class="arithmatex">\(C\)</span> channels. Each filter also has <span class="arithmatex">\(C\)</span> channels. The output tensor has <span class="arithmatex">\(K\)</span> channels, each one corresponding to the convolution output of each filter with the input tensor.</p>
+<p>A convolutional layer has a bank of filters, each detecting different features in the input. To illustrate, suppose the input is a <span class="arithmatex">\(3\times 224\times 224\)</span> tensor, and the layer has a bank of <span class="arithmatex">\(64\)</span> filters. Each filter produces one <span class="arithmatex">\(224\times 224\)</span> output. Each output contains the features detected in the input by the corresponding filter. The aggregated layer output is a <span class="arithmatex">\(64\times 224\times 224\)</span> tensor, and all the filters in the next convolutional layer have <span class="arithmatex">\(64\)</span> channels.</p>
+<p>In practice, a convolution layer typically uses 4D input, filter, and output tensors. The usual way tensors are arranged in (1D) memory, known as the <em>data layout</em>, is as <span class="arithmatex">\(NCHW\)</span> or <span class="arithmatex">\(NHWC\)</span> for the input tensors, where <span class="arithmatex">\(N\)</span> is the number of samples in the batch, <span class="arithmatex">\(C\)</span> is the input depth (or equivalently, the number of channels or features), <span class="arithmatex">\(W\)</span> is the input width, and <span class="arithmatex">\(H\)</span> is the input height. The filters are arranged as <span class="arithmatex">\(RSCK\)</span> or <span class="arithmatex">\(KCRS\)</span>, where <span class="arithmatex">\(K\)</span> is the number of filters (also known as the number of output feature channels), <span class="arithmatex">\(R\)</span> is the filter height, and <span class="arithmatex">\(S\)</span> is the filter width. The <span class="arithmatex">\(C\)</span> in <span class="arithmatex">\(NCWH\)</span> and <span class="arithmatex">\(KCRS\)</span> are the same. Note that <span class="arithmatex">\(KCRS\)</span> is sometimes denoted as <span class="arithmatex">\(OIHW\)</span> in some literature but not in this book to avoid confusion with the <span class="arithmatex">\(H\)</span> and <span class="arithmatex">\(W\)</span> used for the input tensor. In the example above, the input has <span class="arithmatex">\(NCHW\)</span> dimensions <span class="arithmatex">\(1\times 3\times 224\times 224\)</span>, the filter has <span class="arithmatex">\(KCRS\)</span> dimensions <span class="arithmatex">\(64\times 3\times 5\times 5\)</span>, and the output has <span class="arithmatex">\(\mathit{NK\tilde{H}\tilde{W}}\)</span> dimensions <span class="arithmatex">\(1\times 64\times 224\times 224\)</span>.</p>
+<p>The convolution is computed along seven dimensions: batch size <span class="arithmatex">\(N\)</span>, output channels <span class="arithmatex">\(K\)</span>, input channels <span class="arithmatex">\(C,\)</span> output height <span class="arithmatex">\(\tilde{H}\)</span>, output width <span class="arithmatex">\(\tilde{W}\)</span>, filter height <span class="arithmatex">\(R\)</span>, and filter width <span class="arithmatex">\(S\)</span>. It can be implemented naively as seven <code>for</code> loops, as shown in Algorithm <a href="../ch02/#alg:conv">2.1</a>, where <span class="arithmatex">\(k\)</span>, <span class="arithmatex">\(\tilde{h}\)</span>, and <span class="arithmatex">\(\tilde{w}\)</span>, represent the channel, height, and width indices of the output tensor <span class="arithmatex">\(\mathbf{Z}\)</span>. For simplicity, the stride is assumed to be <span class="arithmatex">\(1\)</span>. There are <a href="https://arxiv.org/abs/1602.06709">more efficient implementations</a> that account for a device's memory hierarchy and parallel computing capabilities [<a href="../biblio/#das2016">DAM+16</a>].</p>
+<div id="alg:conv"></div>
+<p><em>Algorithm 2.1</em>: Convolution primitive (naive implementation).</p>
+<pre><code class="language-python">z[:] = 0
+for n in range(N):
+  for k in range(K):
+    for c in range(C):
+      for h_tilde in range(H_tilde):
+        for w_tilde in range(W_tilde):
+          for r in range(R):
+            for s in range(S):
+              z[n,k,h_tilde,w_tilde] += a[n,c,h_tilde+r-1,w_tilde+s-1] w[k,c,r,s]
+</code></pre>
+<p>A convolutional filter can be implemented as a GEMM by duplicating some of the input values, as shown in Figure <a href="../ch02/#fig:im2col">2.6</a>, and converting the filter into a vector. This is called an <span class="arithmatex">\(\mathit{im2col}\)</span>-based convolution <a href="https://arxiv.org/abs/1310.1531">implementation</a>. This implementation enables the use of a GEMM library (which is typically well optimized). However, it comes at the expense of additional memory requirements for the input tensor and extra compute cycles to transform the input. Conversely, an affine layer can be represented as a convolution layer where <span class="arithmatex">\(C\)</span> is the number of input activations, <span class="arithmatex">\(K\)</span> is the number of output activations, <span class="arithmatex">\(H=W=1\)</span>, and <span class="arithmatex">\(R=S=1\)</span> using the <span class="arithmatex">\(NCHW\)</span> and <span class="arithmatex">\(KCRS\)</span> data layout representations.</p>
+<div id="fig:im2col"></div>
+<p><img alt="" src="../figures/ch02-06.png" />
+<em>Figure 2.6:</em> A convolution operation can be implemented as a matrix multiplication. In this simple illustration, the input is not zero-padded so the output dimensions are smaller than the input dimensions.</p>
+<p>In addition, a convolution operation can be implemented in the <a href="https://arxiv.org/abs/1509.09308">Winograd domain</a> and also in <a href="http://www.bmva.org/bmvc/2015/papers/paper160/paper160.pdf">Fourier domain</a> using the Fast Fourier transform (FFT) algorithm [<a href="../biblio/#highlander2015">HR15</a>; <a href="../biblio/#lavin2016">LG16</a>]. <a href="https://oneapi-src.github.io/oneDNN/winograd_convolution.html">oneDNN</a> and <a href="https://docs.nvidia.com/deeplearning/sdk/cudnn-archived/cudnn_761/cudnn-developer-guide/index.html">cuDNN</a> support Winograd convolutions, which may be beneficial for <span class="arithmatex">\(3\times 3\)</span> convolutions (the maximum theoretical gain is <span class="arithmatex">\(2.25\times\)</span> over regular convolutions). However, using the Winograd transform may <a href="https://arxiv.org/abs/1509.09308">reduce</a> the numeric accuracy of the computations, which can impact the overall accuracy of the model [<a href="../biblio/#lavin2016">LG16</a>]. <a href="https://arxiv.org/abs/1802.06367">Sparsifying</a> the Winograd domain (increasing the number of zero values in the Winograd domain) can lead to <a href="https://openreview.net/forum?id=HJzgZ3JCW">higher gains</a>, but also higher accuracy loss [<a href="../biblio/#liu2018-c">LPH+18</a>]. Winograd requires additional memory and consumes more bandwidth; thus, when sufficient compute is available, the conversion overhead may result in overall slower performance. The FFT primarily benefits large filter sizes, which are uncommon in DL. Therefore, Winograd- and FFT-based convolutions are rarely used in production.</p>
+<p>Section <a href="../ch03/#ch03.sec2">3.2</a> introduces other variants of convolution, including the <span class="arithmatex">\(1\times 1\)</span> convolution, group convolution, and depthwise separable convolutions, when discussing influential computer vision topologies.</p>
+<div id="ch02.sec4"></div>
+<h2 id="24-pooling">2.4 Pooling</h2>
+<p>Pooling or subsampling reduces the size of the input tensor across the height and width, typically without affecting the number of channels. Pooling often follows a convolutional layer. The common implementation, known as <em>max pooling</em>, is to select the maximum value in a small region. A 2D pooling layer uses <span class="arithmatex">\(2\times 2\)</span> nonoverlapping regions and reduces the tensor size by a factor of <span class="arithmatex">\(4\)</span>, as illustrated in Figure <a href="../ch02/#fig:pool">2.7</a>.</p>
+<div id="fig:pool"></div>
+<p><img alt="" src="../figures/ch02-07.png" />
+<em>Figure 2.7:</em> A (left) <span class="arithmatex">\(1\times 20\times 6 \times 6\)</span> tensor (in <span class="arithmatex">\(NCHW\)</span> layout) input into a <span class="arithmatex">\(2\times 2\)</span> pooling layer produces a (right) <span class="arithmatex">\(1\times 20\times 3 \times 3\)</span> tensor output. Credit: <a href="https://www.linkedin.com/in/joanne-y-200ba3114/">Joanne Yuan</a>.</p>
+<p>The main benefit of pooling is that filters after a pooling layer have a larger receptive field or coverage on the original input image. For example, a <span class="arithmatex">\(3\times 3\)</span> filter maps to a <span class="arithmatex">\(6\times 6\)</span> portion of the input image after one <span class="arithmatex">\(2\times 2\)</span> pooling layer. A <span class="arithmatex">\(3\times 3\)</span> filter deeper in the model, after five convolutional and pooling layers, maps to a <span class="arithmatex">\(96\times 96\)</span> (note that <span class="arithmatex">\(3\times 2^5=96\)</span>) portion of the input image and can learn more complex features. Another benefit of pooling is that it reduces the number of operations.</p>
+<p>Other forms of pooling include <em>average pooling</em>, <em>stochastic pooling</em>, and <em>spatial pyramid pooling</em> (SPP). Average pooling and stochastic pooling are similar to max pooling. Average pooling computes the average of the values in a small region. <a href="https://arxiv.org/abs/1301.3557">Stochastic pooling</a> samples a value based on the distribution of the values in the small region [<a href="../biblio/#zeiler2013-b">ZF13</a>]. <a href="https://arxiv.org/abs/1406.4729">SPP</a> is used after the last convolution layer to generate fixed-length outputs when the input images are not of a fixed size [<a href="../biblio/#he2015-c">HZR+15</a>]. In Section <a href="../ch03/#ch03.sec2.sub3">3.2.3</a>, we provide an example of SPP used in a production model for image segmentation.</p>
+<div id="ch02.sec5"></div>
+<h2 id="25-recurrent-units">2.5 Recurrent Units</h2>
+<p>There are three main types of recurrent units: vanilla RNN, Long Short Term Memory (<a href="https://ieeexplore.ieee.org/document/7508408">LSTM</a>), and Gated Recurrent Unit (<a href="https://arxiv.org/abs/1412.3555">GRU</a>) [<a href="../biblio/#greff2017">GSK+17</a>; <a href="../biblio/#chung2014">CGC+14</a>]. Each unit has an internal vector or cell state, sometimes called the memory (not to be confused with a processor's memory). At every timestep, the input may modify this memory.</p>
+<p>LSTM and GRU units have soft gates that control how the internal cell state is modified, as shown in Figure <a href="../ch02/#fig:lstm-gru">2.8</a>. These gates enable a NN to retain information for several timesteps. LSTM units have the most extensive adoption, comparable performance to GRU units, and typically statistically outperform vanilla RNN units.</p>
+<div id="fig:lstm-gru"></div>
+<p><img alt="" src="../figures/ch02-08.png" />
+<em>Figure 2.8:</em> LSTM and GRU units have soft gates that control how the memory cell values are modified. Based on [<a href="../biblio/#Phi2018">Phi18</a>].</p>
+<p>LSTM and GRU units do not use activation functions between recurrent components. Therefore, the gradient does not tend to vanish during backpropagation. An LSTM and a GRU unit contain gates that allow them to control the information flow. An LSTM has a "forget" gate to flush memory cell's values, an "input" gate to add new inputs to the memory cell, and an "output" gate to get values from the memory cell. Multiplying the gate input value with the output value of a sigmoid function (the gate), which corresponds to a number between <span class="arithmatex">\(0\)</span> and <span class="arithmatex">\(1\)</span>, implements this gating. Note the input, output, and memory cell are vectors, and each vector's value uses a unique gating value.</p>
+<div id="ch02.sec6"></div>
+<h2 id="26-normalization">2.6 Normalization</h2>
+<p>A common ML technique that improves training is normalizing the input data by subtracting the mean of the data and dividing it by the standard deviation. Normalization improves learning in single layer models as each parameter can make similar contributions to the learning, as illustrated in Figure <a href="../ch02/#fig:normalization">2.9</a>. It is also beneficial to carefully normalize the inputs of some the layers.</p>
+<div id="fig:normalization"></div>
+<p><img alt="" src="../figures/ch02-09.png" />
+<em>Figure 2.9:</em> The cost space as a function of two weights for (left) unnormalized data and (right) normalized data. Each contour represents a set of weights with equal cost and the minimum is in the inner contour. Normalizing the data results in faster learning because each parameter can make a similar contribution.</p>
+<p>The distribution of the inputs to each layer through the network can vary widely, resulting in some gradients that have little impact on the learning process. Normalizing the inputs or outputs of the activation functions improves training stability, enables the training of larger models, and results in faster convergence. The reason is that the gradient of the weights in a given layer is somewhat proportional to the magnitude of the layer inputs. Having gradients with similar magnitudes (1) reduces the effects of exploding and diminishing gradients when backpropagating through a deep network and (2) prevents some of the partial derivatives from skewing the overall gradient in a particular direction.</p>
+<p>The most common techniques to normalize activations are batch normalization, batch renormalization, layer normalization, and group normalization, shown in Figure <a href="../ch02/#fig:normalizations">2.10</a>. In practice, we recommend using batch normalization for non-recurrent models when the batch size is greater than or equal to <span class="arithmatex">\(32\)</span> and group normalization otherwise.</p>
+<div id="fig:normalizations"></div>
+<p><img alt="" src="../figures/ch02-10.png" />
+<em>Figure 2.10:</em> Different normalization methodologies normalize across different portions of the tensor. The tensor values colored in green are normalized by their mean and variance. Based on [<a href="../biblio/#wu2018">WH18</a>].</p>
+<p><strong><a href="https://arxiv.org/abs/1502.03167">Batch normalization</a> (BN)</strong> was a breakthrough technique enabling the training of deeper and more accurate models and is widely adopted in production [<a href="../biblio/#ioffe2015">IS15</a>]. BN can be applied to the input or output of an activation function. Based on <a href="https://github.com/ducha-aiki/caffenet-benchmark/blob/master/batchnorm.md#bn----before-or-after-relu">empirical data</a>, the latter is recommended and used in the analysis below.</p>
+<p>The activations <span class="arithmatex">\(\mathbf{a}^{(l)}\)</span> in Layer <span class="arithmatex">\(l\)</span> are normalized by the mean <span class="arithmatex">\(E\)</span> and variance <span class="arithmatex">\(V\)</span> across a batch of samples. Each BN layer has two trainable parameters: <span class="arithmatex">\(\gamma\)</span> and <span class="arithmatex">\(\beta\)</span> to scale and then shift the normalized activations. These parameters provide flexibility over the amount of normalization in a BN layer to maximize statistical performance. Note that data scientists can remove the bias term in the fully-connected or convolutional layer with no statistical effects as the shift term <span class="arithmatex">\(\beta\)</span> effectively cancels out the bias term.</p>
+<p>At the end of the training process, the mean and variance for each BN layer are computed using statistics from the entire training set or a large representative subset. These values are fixed and used during serving; they are not recomputed in each serving batch. During inference, the BN output is: </p>
+<div class="arithmatex">\[\begin{aligned} BN \left(\mathbf{a}^{(l+1)} \right) &amp;= \gamma \frac{\mathbf{a}^{(l+1)} - E\mathbf{1}}{V} + \beta\mathbf{1} = \gamma \frac{g(\mathbf{W}^{(l)}\mathbf{a}^{(l)}) - E\mathbf{1}}{V} + \beta\mathbf{1} \\ &amp;= g \left(\frac{\gamma}{V}\mathbf{W}^{(l)}\mathbf{a}^{(l)} \right) + \left(\beta - \frac{\gamma E}{V} \right)\mathbf{1} = g \left(\mathbf{W'}^{(l)}\mathbf{a}^{(l)} \right) + \mathbf{b'},\end{aligned}\]</div>
+<p>where <span class="arithmatex">\(g(\cdot)\)</span> is the activation function, <span class="arithmatex">\(\mathbf{W'} = \frac{\gamma}{V}\mathbf{W}\)</span> and <span class="arithmatex">\(\mathbf{b'} = (\beta - \frac{\gamma E}{V})\mathbf{1}\)</span>. That is, during inference the BN can be incorporated directly in the weights by multiplying them by <span class="arithmatex">\(\frac{\gamma}{V}\)</span> in the preceding convolutional or fully-connected layer, and adding the bias <span class="arithmatex">\(\mathbf{b'}\)</span> to the activations.</p>
+<p>There are two drawbacks to batch normalization. First, it requires training with batches of sufficient samples (usually <span class="arithmatex">\(32\)</span> or more) to capture adequate statistics representative of the entire training set. This requirement limits distributed training algorithms when the batch per device is small. Second, batch normalization cannot be used in recurrent layers because the statistics change with each recurrent step, but the BN parameters are shared across all steps. Batch renormalization, layer normalization, and group normalization address these drawbacks.</p>
+<p><strong><a href="https://arxiv.org/abs/1702.03275">Batch renormalization</a></strong> constrains the mean and standard deviation of BN to reduce the large difference when the batch size is small [<a href="../biblio/#ioffe2017">Iof17</a>]. Batch renormalization allows training with small batches.</p>
+<p><strong><a href="https://arxiv.org/abs/1607.06450">Layer normalization</a></strong> computes the mean and standard deviation across all the activation values in a layer in a data sample. Therefore, different data samples have different normalization terms [<a href="../biblio/#ba2016">BKH16</a>].</p>
+<p><strong><a href="https://arxiv.org/abs/1803.08494">Group normalization</a></strong> is a generalization of layer normalization. It uses the mean and variance across groups of channels, rather than across all the channels [<a href="../biblio/#wu2018">WH18</a>]. The number of groups is a hyperparameter chosen by the user. Both of these methods also include the two trainable parameters as in batch normalization. Empirical <a href="https://arxiv.org/pdf/1803.08494.pdf">results</a> show group normalization works much better than BN for small batch sizes, and only slightly worse than BN for large batch sizes [<a href="../biblio/#wu2018">WH18</a>].</p>
+<p><strong><a href="https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf">Local response normalization</a> (LRN)</strong> square-normalizes the values using the statistics in a small neighborhood [<a href="../biblio/#krizhevsky2012">KSH12</a>]. LRN is not a trainable layer. It was used in older models before batch normalization gained adoption.</p>
+<div id="ch02.sec7"></div>
+<h2 id="27-embeddings">2.7 Embeddings</h2>
+<p>An embedding (also known as encoding or thought-vector) is a low-dimensional dense vector representation of a data sample. It is often used as the input to a language or recommender model. An embedding layer maps high-dimensional sparse data to an embedding. To illustrate, suppose a dictionary has 10,000 words. A 10,000-dimensional vector of all zeros except for a one at the corresponding index represents a word. This is called a one-hot vector. Unsupervised learning algorithms, such as <a href="https://papers.nips.cc/paper/5021-distributed-representations-of-words-and-phrases-and-their-compositionality.pdf">word2vec</a> or <a href="https://nlp.stanford.edu/pubs/glove.pdf">GloVe</a>, can learn to map a corpus of words to low-dimensional dense representations [<a href="../biblio/#mikolov2013">MSC+13</a>; <a href="../biblio/#pennington2014">PSM14</a>]. Other usages are learning dense representation for persons in a social network or products in a retail business with a large catalog. In images, the activations of the last or second-to-last layer of a CNN model are often used to embed the image.</p>
+<p>The embeddings often demonstrate data associations, and vector embeddings of similar words are closer to each other. For instance, using their learned vector representations, <span class="arithmatex">\(\mathbf{v}_{\mathit{queen}}\approx\mathbf{v}_{\mathit{woman}} + \mathbf{v}_{\mathit{king}} - \mathbf{v}_{\mathit{man}}\)</span>, as shown in Figure <a href="../ch02/#fig:word2vec">2.11</a>.</p>
+<div id="fig:word2vec"></div>
+<p><img alt="" src="../figures/ch02-11.png" />
+<em>Figure 2.11:</em> 3D word embeddings. Word embedding often capture word associations. Based on [<a href="../biblio/#google-dev2020">Goo20</a>].</p>
+<div id="ch02.sec8"></div>
+<h2 id="28-attention">2.8 Attention</h2>
+<p>An attention layer learns how the input vectors influence each output vector, as shown in Figure <a href="../ch02/#fig:attention">2.12</a>. Some attention layers also capture how the neighboring output vectors influence each other. Attention layers are popular in language models to determine the <a href="https://arxiv.org/abs/1706.03762">associations</a> between input and output tokens [<a href="../biblio/#vaswani2017">VSP+17</a>]. A token is a word, a subword, or a symbol, such as a question mark. Attention layers can be computationally expensive as each layer may require computing an attention value for each combination of input and output tokens. This additional computation may increase the serving latency in some workloads beyond what is acceptable for a given application. Nevertheless, using attention layers can improve the statistical performance.</p>
+<p>Attention layers are also used in some recommenders to learn a context vector that <a href="http://www.thuir.cn/group/~mzhang/publications/WSDM2019ChenChong.pdf">captures</a> the influence between users. They are also used in image captioning to <a href="https://arxiv.org/abs/1511.02274">focus</a> the decoder on the relative parts of the image [<a href="../biblio/#chen2019-b">CZZ+19</a>; <a href="../biblio/#yang2015">YHG+15</a>]. Attention can improve interpretability. The attention layer may be used to observe and explain how an input feature influences a particular output.</p>
+<div id="fig:attention"></div>
+<p><img alt="" src="../figures/ch02-12.png" />
+<em>Figure 2.12:</em> Attention-based models capture how each output token is influenced by the all input tokens. The blue and green rectangles are cells corresponding to the encoder and decoder, respectively. To generate the french word <em>suis</em>, the attention weight is the highest for the corresponding English word <em>am</em>. Based on [<a href="../biblio/#synced2017">Syn17</a>].</p>
+<div id="ch02.sec9"></div>
+<h2 id="29-dropout">2.9 Dropout</h2>
+<p>Dropout is designed to reduce overfitting and may be used in fully connected non-recurrent layers. During training, a percentage of the weights in a layer is ignored (dropped) for an iteration, as shown in Figure <a href="../ch02/#fig:dropout">2.13</a>. At each iteration, a new set of weights is randomly ignored, which reduces overfitting by reducing cooperation between the weights. During inference, all the weights are used.</p>
+<div id="fig:dropout"></div>
+<p><img alt="" src="../figures/ch02-13.png" />
+<em>Figure 2.13:</em>  (left) Original model before dropout. (right) A percentage of the weights in a layer are dropped during each training iteration.</p>
+<p>RNN-based models can use dropout after the embedding layers and in-between RNN stacks. While dropout could be used across temporal units if the same set of weights across all the timesteps are dropped, it is usually not used. CNNs layers typically do not use dropout given that those layers already have few weights.</p>
+<p>In practice, normalization techniques are preferred to reduce overfitting, and newer models do not use dropout. Based on empirical <a href="https://arxiv.org/pdf/1801.05134.pdf">evaluations</a>, normalization and dropout should not be jointly used as they have a negative convergence impact [<a href="../biblio/#li2019-b">LCH+19</a>].</p>
+<p><strong>SLIDE</strong> is an extension to dropout [<a href="../biblio/#chen2020">CMF+20</a>]. In dropout, the weights are randomly dropped. In SLIDE, the weights that produce small activations are dropped. The percentage of dropped weights in SLIDE can be 90-95%, whereas in dropout it is usually 50%. Thus, only the most relevant weights are updated in each training iteration. The challenge that SLIDE addresses is predicting which weight vectors produce large activations. SLIDE uses locality sensitive hashing (LSH) to select similar vector weights to the input activation vectors.</p>
+<p>SLIDE has a CPU affinity for two main reasons. First, LSH relies on branching, for which CPUs are well optimized. Second, the LSH tables require a large memory capacity, which also favors CPUs. There is <a href="https://arxiv.org/abs/1710.11246">ongoing research</a> toward making hashing more efficient on GPUs [<a href="../biblio/#ashkiani2018">AFO18</a>].</p>
+<p>Similarly to dropout, SLIDE is primarily beneficial for fully-connected, non-recurrent layers with many units, since these are typically overparameterized and can be heavily sparsified. In particular, for the affine layer into the softmax layer in extreme classification tasks (common in recommender systems), where the softmax has hundreds of thousands of units. Similar to dropout, jointly using SLIDE and normalization is not recommended. Finally, SLIDE is relatively new and has not been adopted in production environments. Further work is needed to facilitate adoption.</p>
+<p>In this chapter, we detailed the standard building blocks of topologies used in commercial applications and explained their purpose. These building blocks or layers have different hardware needs. Typically, embeddings layers need large memory and memory bandwidth, convolutional layers need large compute, and recurrent layers need large memory bandwidth. We introduced the concept of a graph with nodes and edges as a representation for a topology. A standard graph optimization technique, detailed in Chapter <a href="../ch08/#ch08">8</a>, is to merge dense linear nodes, such as GEMM and convolutions, with element-wise nodes, such as ReLU, to reduce memory accesses and improve performance. We recommended using batch normalization for non-recurrent layers when the batch size is greater than or equal to 32 and group normalization otherwise. Also, normalization is preferable over dropout and both should not be used jointly. In the next chapter, we discuss foundational topologies composed of these building blocks and their applications by hyperscalers.</p>
+
+  <br>
+    
+
+    
+    
+      
+    
+
+  <div class="row wm-article-nav-buttons" role="navigation" aria-label="navigation">
+    
+    <div class="wm-article-nav pull-right">
+      <a href="../ch03/" class="btn btn-xs btn-default pull-right">
+        Next
+        <i class="fa fa-chevron-right" aria-hidden="true"></i>
+      </a>
+      <a href="../ch03/" class="btn btn-xs btn-link">
+        Chapter 3: Models and Applications
+      </a>
+    </div>
+    
+    <div class="wm-article-nav">
+      <a href="../ch01/" class="btn btn-xs btn-default pull-left">
+        <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        Previous</a><a href="../ch01/" class="btn btn-xs btn-link">
+        Chapter 1: Introduction
+      </a>
+    </div>
+    
+  </div>
+
+    <br>
+</div>
+
+<footer class="container-fluid wm-page-content">
+  <p>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a> using <a href="https://github.com/gristlabs/mkdocs-windmill">Windmill</a> theme by Grist Labs.</p>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  
+  
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="None">
+    
+    
+    <link rel="shortcut icon" href="./img/favicon.ico">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+    <title>Deep Learning Systems: Algorithms, Compilers, and Processors for Large-Scale Production</title>
+    <link href="./css/bootstrap-3.3.7.min.css" rel="stylesheet">
+    <link href="./css/font-awesome-4.7.0.css" rel="stylesheet">
+    <link href="./css/base.css" rel="stylesheet">
+    <link rel="stylesheet" href="./css/highlight.css">
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+    <![endif]-->
+
+    <script src="./js/jquery-3.2.1.min.js"></script>
+    <script src="./js/bootstrap-3.3.7.min.js"></script>
+    <script src="./js/highlight.pack.js"></script>
+    
+      <script src="./js/elasticlunr.min.js"></script>
+    
+    <base target="_top">
+    <script>
+      var base_url = '.';
+      var is_top_frame = (window === window.parent);
+        
+        var pageToc = [
+          {title: "Deep Learning Systems", url: "#_top", children: [
+              {title: "Citing the book", url: "#citing-the-book" },
+              {title: "Ordering a copy", url: "#ordering-a-copy" },
+              {title: "Copyright", url: "#copyright" },
+              {title: "Errata", url: "#errata" },
+              {title: "Disclaimer", url: "#disclaimer" },
+          ]},
+        ];
+
+    </script>
+    <script src="./js/base.js"></script>
+      <script src="javascripts/config.js"></script>
+      <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script> 
+</head>
+
+<body>
+<script>
+if (is_top_frame) { $('body').addClass('wm-top-page'); }
+</script>
+
+<nav class="navbar wm-page-top-frame">
+  <div class="container-fluid wm-top-container">
+    
+    <div class="wm-top-tool pull-right wm-vcenter">
+      <form class="dropdown wm-vcentered" id="wm-search-form" action="./search.html">
+        
+        <button id="wm-search-show" class="btn btn-sm btn-default" type="submit"
+          ><i class="fa fa-search" aria-hidden="true"></i></button>
+
+        <div class="input-group input-group-sm wm-top-search">
+          <input type="text" name="q" class="form-control" id="mkdocs-search-query" placeholder="Search" autocomplete="off">
+          <span class="input-group-btn" role="search">
+            
+            <button class="btn btn-default dropdown-toggle collapse" data-toggle="dropdown" type="button"><span class="caret"></span></button>
+            <ul id="mkdocs-search-results" class="dropdown-menu dropdown-menu-right"></ul>
+            <button id="wm-search-go" class="btn btn-default" type="submit"><i class="fa fa-search" aria-hidden="true"></i></button>
+          </span>
+        </div>
+      </form>
+    </div>
+
+    
+    <div class="wm-top-tool wm-vcenter pull-right wm-small-left">
+      <button id="wm-toc-button" type="button" class="btn btn-sm btn-default wm-vcentered"><i class="fa fa-th-list" aria-hidden="true"></i></button>
+    </div>
+
+    
+    
+
+    
+    <a href="" class="wm-top-brand wm-top-link wm-vcenter">
+      
+      <div class="wm-top-title">
+        Deep Learning Systems: Algorithms, Compilers, and Processors for Large-Scale Production<br>
+        
+      </div>
+    </a>
+  </div>
+</nav>
+
+  <div id="main-content" class="wm-page-top-frame">
+    
+<nav class="wm-toc-pane">
+  
+  <ul class="wm-toctree">
+        <li class="wm-toc-li wm-toc-lev1 "><a href="" class="wm-article-link wm-toc-text">Home</a>
+</li>
+        <li class="wm-toc-li wm-toc-lev1 "><a href="abstract/" class="wm-article-link wm-toc-text">Abstract</a>
+</li>
+        <li class="wm-toc-li wm-toc-lev1 "><a href="preface/" class="wm-article-link wm-toc-text">Preface</a>
+</li>
+        <li class="wm-toc-li wm-toc-lev1 "><a href="acknowledgments/" class="wm-article-link wm-toc-text">Acknowledgments</a>
+</li>
+        <li class="wm-toc-li wm-toc-lev1 "><a href="ch01/" class="wm-article-link wm-toc-text">Chapter 1: Introduction</a>
+</li>
+        <li class="wm-toc-li wm-toc-lev1 "><a href="ch02/" class="wm-article-link wm-toc-text">Chapter 2: Building Blocks</a>
+</li>
+        <li class="wm-toc-li wm-toc-lev1 "><a href="ch03/" class="wm-article-link wm-toc-text">Chapter 3: Models and Applications</a>
+</li>
+        <li class="wm-toc-li wm-toc-lev1 "><a href="ch04/" class="wm-article-link wm-toc-text">Chapter 4: Training a Model</a>
+</li>
+        <li class="wm-toc-li wm-toc-lev1 "><a href="ch05/" class="wm-article-link wm-toc-text">Chapter 5: Distributed Training</a>
+</li>
+        <li class="wm-toc-li wm-toc-lev1 "><a href="ch06/" class="wm-article-link wm-toc-text">Chapter 6: Reducing the Model Size</a>
+</li>
+        <li class="wm-toc-li wm-toc-lev1 "><a href="ch07/" class="wm-article-link wm-toc-text">Chapter 7: Hardware</a>
+</li>
+        <li class="wm-toc-li wm-toc-lev1 "><a href="ch08/" class="wm-article-link wm-toc-text">Chapter 8: Compiler Optimizations</a>
+</li>
+        <li class="wm-toc-li wm-toc-lev1 "><a href="ch09/" class="wm-article-link wm-toc-text">Chapter 9: Frameworks and Compilers</a>
+</li>
+        <li class="wm-toc-li wm-toc-lev1 "><a href="ch10/" class="wm-article-link wm-toc-text">Chapter 10: Opportunities and Challenges</a>
+</li>
+        <li class="wm-toc-li wm-toc-lev1 "><a href="biblio/" class="wm-article-link wm-toc-text">Bibliography</a>
+</li>
+        <li class="wm-toc-li wm-toc-lev1 "><a href="bio/" class="wm-article-link wm-toc-text">Author's Biography</a>
+</li>
+  </ul>
+</nav>
+
+    <div class="wm-content-pane">
+      <iframe class="wm-article" name="article"></iframe>
+    </div>
+  </div>
+
+<div class="container-fluid wm-page-content">
+  <a name="_top"></a>
+    
+
+    
+    
+      
+    
+
+  <div class="row wm-article-nav-buttons" role="navigation" aria-label="navigation">
+    
+    <div class="wm-article-nav pull-right">
+      <a href="abstract/" class="btn btn-xs btn-default pull-right">
+        Next
+        <i class="fa fa-chevron-right" aria-hidden="true"></i>
+      </a>
+      <a href="abstract/" class="btn btn-xs btn-link">
+        Abstract
+      </a>
+    </div>
+    
+  </div>
+
+    
+
+    <h1 id="deep-learning-systems">Deep Learning Systems</h1>
+<p><strong><em>Deep Learning Systems: Algorithms, Compilers, and Processors for Large-Scale Production</em></strong></p>
+<p><strong><a href="https://www.linkedin.com/in/andres-rodriguez-3333212/">Andres Rodriguez</a></strong></p>
+<p>This book describes deep learning systems: the algorithms, compilers, processors, and platforms to efficiently train and deploy deep learning models at scale in production.</p>
+<p><img src="figures/bookcover.jpg" width="50%" height="50%"></p>
+<h3 id="citing-the-book">Citing the book</h3>
+<p>To cite this book, please use this bibtex entry:</p>
+<pre><code>@book{rodriguez2020,
+  author={Andres Rodriguez},
+  title={Deep Learning Systems: Algorithms, Compilers, and Processors for Large-Scale Production},
+  series={Synthesis Lectures on Computer Architecture},
+  publisher={Morgan &amp; Claypool Publishers},
+  month={Oct.},
+  year={2020}
+}
+</code></pre>
+<p>Andres Rodriguez. <em>Deep Learning Systems: Algorithms, Compilers, and Processors for Large-Scale Production.</em> Synthesis Lectures on Computer Architecture. Morgan &amp; Claypool Publishers. Oct. 2020.</p>
+<h3 id="ordering-a-copy">Ordering a copy</h3>
+<p>The book can be ordered as hardcover, paperback and PDF at <a href="https://www.morganclaypool.com/doi/10.2200/S01046ED1V01Y202009CAC053">Morgan and Claypool</a> and <a href="https://www.amazon.com/Deep-Learning-Systems-Large-scale-Architecture/dp/1681739666/">Amazon</a>. A PDF copy is available to most research institutions at <a href="https://ieeexplore.ieee.org/document/9244708">IEEE</a>.</p>
+<h3 id="copyright">Copyright</h3>
+<p>A special thanks to the publisher <em>Morgan &amp; Claypool</em> for permitting the HTML distribution of the book freely in this website. Any reproduction of this content requires permission by <em>Morgan &amp; Claypool</em> who holds the copyright to the book.</p>
+<h3 id="errata">Errata</h3>
+<p>Please submit your comments and errata to <code>deep.learning.systems</code> <em>at</em> <code>gmail</code> <em>dot</em> <code>com</code>. Thanks in advance for taking the time to contribute.</p>
+<h3 id="disclaimer">Disclaimer</h3>
+<p>The views expressed in the book are entirely my own and do not represent those of my employer or those acknowledged. Details regarding software and hardware products come from publicly disclosed information, which may not represent the latest status of those products.</p>
+<div id="fig:bookcover"></div>
+<p><img alt="" src="figures/bookcover.jpg" /></p>
+
+  <br>
+    
+
+    
+    
+      
+    
+
+  <div class="row wm-article-nav-buttons" role="navigation" aria-label="navigation">
+    
+    <div class="wm-article-nav pull-right">
+      <a href="abstract/" class="btn btn-xs btn-default pull-right">
+        Next
+        <i class="fa fa-chevron-right" aria-hidden="true"></i>
+      </a>
+      <a href="abstract/" class="btn btn-xs btn-link">
+        Abstract
+      </a>
+    </div>
+    
+  </div>
+
+    <br>
+</div>
+
+<footer class="container-fluid wm-page-content">
+  <p>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a> using <a href="https://github.com/gristlabs/mkdocs-windmill">Windmill</a> theme by Grist Labs.</p>
+</footer>
+
+</body>
+</html>
+<!--
+MkDocs version : 1.1.2
+Build Date UTC : 2021-01-05 17:29:38.045648+00:00
+-->

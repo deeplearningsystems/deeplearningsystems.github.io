@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  
+  
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    
+    
+    <link rel="shortcut icon" href="../img/favicon.ico">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+    <title>Chapter 8: Compiler Optimizations - Deep Learning Systems: Algorithms, Compilers, and Processors for Large-Scale Production</title>
+    <link href="../css/bootstrap-3.3.7.min.css" rel="stylesheet">
+    <link href="../css/font-awesome-4.7.0.css" rel="stylesheet">
+    <link href="../css/base.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/highlight.css">
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+    <![endif]-->
+
+    <script src="../js/jquery-3.2.1.min.js"></script>
+    <script src="../js/bootstrap-3.3.7.min.js"></script>
+    <script src="../js/highlight.pack.js"></script>
+    
+    <base target="_top">
+    <script>
+      var base_url = '..';
+      var is_top_frame = false;
+        
+        var pageToc = [
+          {title: "Chapter 8: Compiler Optimizations", url: "#_top", children: [
+              {title: "8.1 Language Types", url: "#81-language-types" },
+              {title: "8.2 Front-End, Middle-End, and Back-End Compilation Phases", url: "#82-front-end-middle-end-and-back-end-compilation-phases" },
+              {title: "8.3 LLVM", url: "#83-llvm" },
+              {title: "8.4 Hardware-Independent Optimizations", url: "#84-hardware-independent-optimizations" },
+              {title: "8.5 Hardware-Dependent Optimizations", url: "#85-hardware-dependent-optimizations" },
+          ]},
+        ];
+
+    </script>
+    <script src="../js/base.js"></script>
+      <script src="../javascripts/config.js"></script>
+      <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script> 
+</head>
+
+<body>
+<script>
+if (is_top_frame) { $('body').addClass('wm-top-page'); }
+</script>
+
+
+
+<div class="container-fluid wm-page-content">
+  <a name="_top"></a>
+    
+
+    
+    
+      
+    
+
+  <div class="row wm-article-nav-buttons" role="navigation" aria-label="navigation">
+    
+    <div class="wm-article-nav pull-right">
+      <a href="../ch09/" class="btn btn-xs btn-default pull-right">
+        Next
+        <i class="fa fa-chevron-right" aria-hidden="true"></i>
+      </a>
+      <a href="../ch09/" class="btn btn-xs btn-link">
+        Chapter 9: Frameworks and Compilers
+      </a>
+    </div>
+    
+    <div class="wm-article-nav">
+      <a href="../ch07/" class="btn btn-xs btn-default pull-left">
+        <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        Previous</a><a href="../ch07/" class="btn btn-xs btn-link">
+        Chapter 7: Hardware
+      </a>
+    </div>
+    
+  </div>
+
+    
+
+    <div id="ch8"></div>
+<h1 id="chapter-8-compiler-optimizations">Chapter 8: Compiler Optimizations</h1>
+<p>At the core of the software stack are compilers to transform the programmer's high-level code into executable code that runs efficiently on a target device. Programmers use a variety of languages to code at various levels of abstraction. A programming language is a formal language used to write code, such as for functions and algorithms. High-level languages are independent of a hardware target and include C, C++, Python, Java, Javascript, CUDA C/C++, Swift, and Julia. Assembly (asm) is a low-level language that targets a specific instruction set architecture (ISA). In between are intermediate languages that are assembly-like in format but general enough for execution on different ISA, such as LLVM IR, various Multi-Level IR (MLIR) dialects, and PTX for Nvidia GPUs.</p>
+<p>Programming languages have a set of specifications or rules that dictate what the outputs should be for a given input. The output also depends on the dynamic conditions of the running program. The approaches to implement a programming language are interpretation, compilation, or a mixture of both. The terms <em>interpreted language</em> and <em>compiled language</em> denote that the default or canonical implementation of that language uses an interpreter or a compiler, respectively. For some languages, the canonical implementation is the only implementation, while others like Python have multiple implementations (more on this below).</p>
+<p>An interpreter is a computer program that directly executes the code for a particular language. That is, the code does not map to machine code. The processor executes (runs) the interpreter, and the interpreter reads and generates the output for the interpreted language according to the interpreted language's specifications and rules. The interpreter's source code (the program that is executed) can be a different language than the interpreted language.</p>
+<p>A compiler is a computer program that transforms code between two languages or within a language. The compiler runs various optimization passes to improve the execution time and simplify the code. Alternatively, the compiler may only focus on code <a href="https://sunfishcode.github.io/blog/2018/10/22/Canonicalization.html">canonicalization</a>, which transforms the code into more rigid patterns removing unnecessary variations. The compiled code is passed to an interpreter or directly to the processor when it is machine code (in this case, the processor can be thought of as the interpreter of the machine code).</p>
+<p>Often, before an interpreter executes a high-level code, the code is first dynamically (just-in-time) compiled into <em>bytecode</em>, which is a compact language or efficient intermediate representation. This compilation is usually a minor transformation to make it easier for the interpreter to parse the code. Typically, more compilation (optimization passes) leads to faster execution; however, this comes at the expense of longer build time.</p>
+<p>Let us look at the Python language as an example of a language with various implementations, and focus on two: CPython and PyPy. CPython is an interpreter implementation and the canonical (default) Python implementation. Python programmers that have never heard of CPython likely use the CPython interpreter. Like other interpreted languages, the Python source code or Python command, when used interactively by the programmer, is transformed into bytecode. Then, this bytecode is interpreted by CPython one command at a time. PyPy is an interpreter and a JIT compiler (more on JIT below) Python implementation.</p>
+<p>Compilers <em>lower</em> (this is compiler parlance for <em>transform</em>) code from a higher-level language to a lower-level language, for instance, from C++ to x86 machine code. Compilation to machine code that happens before runtime (execution) is known as Ahead-of-Time (AOT) compilation. Compilation to machine code that happens during runtime is known as Just-in-Time (JIT) compilation. AOT improves the performance for static graphs at the expense of longer compile times.</p>
+<p>A JIT compiler is a computer program that compiles to machine code at runtime. Using a JIT compiler can significantly increase startup time. To mitigate, JIT compilers are typically used alongside an interpreter for runtime profile-guided optimizations, also known as adaptive optimizations. As the interpreter executes the source code (or, more precisely, the bytecode), the interpreter tracks repetitively used sections and triggers the JIT compilation for these sections into higher-performing machine code. The compiled code is cached, and the interpreter can then alternate between the usual execution of bytecode and the execution of the JIT code.</p>
+<p>An intermediate representation (IR) is a data structure or graph representing the required operations for a particular program. Compilation may use several levels of IR, progressively lowering on each pass. A high-level, hardware-independent IR may contain control-flow tokens, such as <code>for</code>, <code>if</code>, and <code>while</code>. A low-level, hardware-independent IR may look similar to assembly language while still being generic enough not to be tied to a specific hardware implementation to simplify the next stage of compilation. Bytecode is an example of an IR.</p>
+<p>Two common properties of some IRs are static single-assignment (SSA) form and three-address code (TAC). SSA requires that each variable (called a typed <em>register</em>) is assigned precisely once (it is not mutable), and every variable is defined before it is used, which facilitates various optimizations. TAC requires that statements have at most three operands.</p>
+<p>Compilers often take multiple optimization <a href="https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/grappler/optimizers/meta_optimizer.cc#L431">passes</a> over each IR, and each pass may affect subsequent passes. The following are hardware-independent and hardware-dependent optimization passes common in the compilation of DL models (<em>italicized</em> passes are the most critical for performance in DL):</p>
+<ul>
+<li>
+<p><strong>Hardware-independent optimizations</strong>: <em>operator fusion</em>, loop permutations, arithmetic simplification, constant folding and propagation, dead code elimination, common subexpression elimination, inlining, loop-invariant code motion, and memory to register promotion.</p>
+</li>
+<li>
+<p><strong>Hardware-dependent optimizations</strong>: <em>loop tiling</em>, <em>polyhedral</em> <em>transformations</em>, <em>data layout</em> <em>manipulations</em>, <em>operator</em> <em>folding</em>, <em>micro-kernel</em> <em>and intrinsic matching</em>, <em>memory</em> <em>allocation</em>, <em>memory</em> <em>fetch sharing</em>, <em>device placement</em>, <em>operator scheduling</em>, loop splitting, and loop fission.</p>
+</li>
+</ul>
+<p>Operator fusion and loop tiling are the most important optimizations for DL models, followed by the other italicized optimizations. Some operator fusions may be hardware-dependent; those that are ISA-dependent are encompassed under operator folding. All these optimization passes are discussed in Sections <a href="../ch08/#ch08.sec4">8.4</a> and <a href="../ch08/#ch08.sec5">8.5</a>.</p>
+<p>In the remainder of this chapter, we review programming language types. We explain the compilation process from high-level language to machine code and, as an example, explain how this process works with the popular LLVM compiler. Moreover, we describe standard compiler optimization passes to accelerate the execution of DL models. Specific DL compilers are discussed in Chapter <a href="../ch09/#ch09">9</a>.</p>
+<div id="ch08.sec1"></div>
+<h2 id="81-language-types">8.1 Language Types</h2>
+<p>Languages can be characterized as <em>statically-typed languages</em> or <em>dynamically-typed languages</em>. In a statically-typed language, the <em>variables</em> are associated with a data type that does not change. Statically-typed languages are generally compiled languages; the type checking happens at compile time before the program runs. Statically-typed languages include C/C++, CUDA C/C++, Java, Scala, Fortran, and Pascal.</p>
+<p>In a dynamically-typed language, the <em>values</em> are associated with a type, and the variables can change type. That is, the variables are dynamic and can be thought of as generic pointers to typed values. Dynamically-typed languages are generally interpreted languages; the type checking happens at runtime. Dynamically-typed languages include Python, JavaScript, and PHP.</p>
+<p>Languages are strongly-typed or weakly-typed. While there is no universally accepted distinction between them, in general, a strongly-typed language requires that every value has a type, and a variable must be explicitly cast before it is assigned to another variable of a different type.</p>
+<div id="ch08.sec2"></div>
+<h2 id="82-front-end-middle-end-and-back-end-compilation-phases">8.2 Front-End, Middle-End, and Back-End Compilation Phases</h2>
+<p>Compilers, such as GCC, LLVM, ICC, MSVC, and some of the DL compilers discussed in the next chapter, lower code to a target ISA. The compilation process from a high-level language to machine code typically consists of three overarching phases, illustrated in Figure <a href="../ch08/#fig:compiler">8.1</a>:</p>
+<ol>
+<li>
+<p>front-end compiler: <em>parser</em> (language dependent);</p>
+</li>
+<li>
+<p>middle-end compiler: <em>optimizer</em> (language and hardware independent); and</p>
+</li>
+<li>
+<p>back-end compiler: <em>machine code generator</em> (hardware dependent).</p>
+</li>
+</ol>
+<p>Each phase has one or more IRs depending on the optimization passes. One or multiple compilation infrastructures may be used for these phases.</p>
+<div id="fig:compiler"></div>
+<p><img alt="" src="../figures/ch08-01.png" />
+<em>Figure 8.1:</em> The compilation process consists of a front-end, middle-end, and back-end phase.</p>
+<h4 id="front-end">Front-end</h4>
+<p>The front-end compiler parses the code, converts it into tokens, checks for errors (syntactic and semantic analysis), and generates a domain-specific IR. Two common types of IR used by front-end compilers are the abstract syntax tree (AST) and the control-flow graph (CFG) data structures. The AST is language-dependent. It captures the lexical structure (layout) of the source code, using the internal nodes for the statements and operators, and the leaf nodes for the operands representing values or variables. The parser returns an error message if a rule in the language specification is violated. Front-end compiler algorithms are fairly matured. Figure <a href="../ch08/#fig:parser">8.2</a> illustrates an AST generated from a <code>for</code> loop.</p>
+<div id="fig:parser"></div>
+<p><img alt="" src="../figures/ch08-02.png" />
+<em>Figure 8.2:</em> (green) The programmer's source code. (orange) The abstract syntax tree (AST) representation. The parser constructs an AST that captures the lexical structure of the source code.</p>
+<p>A CFG is language-independent and expresses the control-flow and data paths through a program. A control-flow statement, such as <code>for</code>, <code>while</code>, and <code>if</code>, determines which of two or more paths to take. The nodes are basic blocks, and the edges represent possible execution paths between basic blocks. Basic blocks are a set of sequential operations with no branch statements until the end of the block. Figure <a href="../ch08/#fig:cfg">8.3</a> illustrates a CFG used to compute the factorial of <span class="arithmatex">\(N\)</span>. The top block is for the code that runs before the <code>while</code> loop. The next block is the comparison to decide which branch to take. The next block is the body and returns to the comparison. The last block is the code that runs after the <code>while</code> loop. A CFG is typically compiled from an AST IR.</p>
+<div id="fig:cfg"></div>
+<p><img alt="" src="../figures/ch08-03.png" />
+<em>Figure 8.3:</em> (green) The programmer's source code. (orange) The control-flow graph (CFG) representation. The CFG expresses the possible decisions at each graph node.</p>
+<h4 id="middle-end">Middle-end</h4>
+<p>The middle-end compiler has two main tasks: (1) <a href="https://sunfishcode.github.io/blog/2018/10/22/Canonicalization.html">canonicalize</a> the various ways of representing the code into predictable patterns removing unnecessary variations and (2) improve the performance via a series of optimizations. Some middle-end optimizations are completely hardware-agnostic, and others need information about the back-end hardware, such as multithreaded parallelization and SIMD vectorization. Figure <a href="../ch08/#fig:comp-opt">8.4</a> illustrates an example optimizing the equation <span class="arithmatex">\(c=a+b\)</span> as <span class="arithmatex">\(c=a\)</span>&lt;&lt;<span class="arithmatex">\(1\)</span>, where the operator &lt;&lt; <a href="https://en.wikipedia.org/wiki/Bitwise_operations_in_C#Left_shift_%3C%3C">left-shifts</a> <span class="arithmatex">\(a\)</span> by <span class="arithmatex">\(1\)</span> bit, which is equivalent to multiplication by <span class="arithmatex">\(2\)</span>.</p>
+<div id="fig:comp-opt"></div>
+<p><img alt="" src="../figures/ch08-04.png" />
+<em>Figure 8.4:</em> The optimizer reduces the number of operators that need to be executed: (left) the unoptimized code and (right) the equivalent optimized code assuming <code>a</code> is an unsigned integer.</p>
+<p>The optimizer typically performs a series of distinct optimization passes on the IR. LLVM does <a href="https://www.youtube.com/watch?v=yCd3CzGSte8">around</a> 150 passes. GCC and LLVM use different algorithms to traverse the IR iteratively. While the order of optimizations affects the end result, strict rules to determine the optimal order do not exist.</p>
+<p>In general, there are three common compiler optimization parts: legality analysis, profitability analysis, and transformation. Legality analysis makes sure the transformation does not break the program. Profitability analysis uses a cost model to determine if the optimization is beneficial and searches for parameters to perform the optimization. Finally, the transformation performs the actual modification of the code.</p>
+<h4 id="back-end">Back-end</h4>
+<p>The back-end compiler lowers the IR onto the target ISA and performs hardware-dependent optimizations. These include instruction selection, instruction scheduling, and memory and register allocation.</p>
+<p>The output from the back-end compiler is machine code in an assembly file or object file. The linker takes the object file(s) and dependent libraries to generate an executable file.</p>
+<h4 id="intrinsic-functions">Intrinsic functions</h4>
+<p>There are some constructs, such as vectorization with SIMD instructions, that a high-level language may not address. In these cases, intrinsic functions provide a way for the programmer to use such constructs. An intrinsic function is a function used in a given language. The implementation is handled especially by the compiler, which maps and optimizes the intrinsic function for a back-end target. Typically, the compiler substitutes a sequence of instructions for the intrinsic function call. Some intrinsic functions are portable, and others are target specific.</p>
+<p>An intrinsic function provides a compromise between transparent integration inside a C/C++ function and writing full inline assembly (where most instructions map directly to an ISA instruction and the compiler takes care of register allocation). GCC, for instance, implements intrinsics for C/C++ that map directly to the x86 SIMD instructions.</p>
+<div id="ch08.sec3"></div>
+<h2 id="83-llvm">8.3 LLVM</h2>
+<p><a href="https://llvm.org/pubs/2004-01-30-CGO-LLVM.html">LLVM</a> originally stood for <em>low-level virtual machine</em> (albeit with no relationship to what most current developers today think of as <em>virtual machines</em>) since the low-level LLVM IR code targets a universal theoretical machine (hence the original term <em>virtual</em>) and compiles for a variety of architectures [<a href="../biblio/#lattner2004">LA04</a>]. While the concept is still accurate, LLVM is now the full name and no longer an acronym. <a href="http://llvm.org/">LLVM</a> is a brand for an umbrella project applied to the following:</p>
+<ul>
+<li>
+<p>LLVM IR</p>
+</li>
+<li>
+<p>LLVM Core</p>
+</li>
+<li>
+<p>LLVM debugger</p>
+</li>
+<li>
+<p>LLVM implementation of the C++ standard library</p>
+</li>
+<li>
+<p>LLVM foundation</p>
+</li>
+</ul>
+<p>In this section, LLVM refers to the LLVM Core, a middle-end and back-end compiler program written in C++.</p>
+<p>LLVM is designed as a set of reusable libraries with well-defined interfaces. A front-end compiler can be written for any language that can compile to the LLVM IR, and a back-end compiler can be written for any new target that can compile from the LLVM IR, as illustrated in Figure <a href="../ch08/#fig:llvm">8.5</a>.</p>
+<div id="fig:llvm"></div>
+<p><img alt="" src="../figures/ch08-05.png" />
+<em>Figure 8.5:</em> LLVM is designed as a set of modular compiler components supporting various front-end languages and back-end hardware targets.</p>
+<div id="ch08.sec3.sub1"></div>
+<h3 id="831-front-end-compilers">8.3.1 Front-End Compilers</h3>
+<p>Clang is an "LLVM native" front-end compiler for the C/C++, Objective-C/C++, and CUDA C/C++ languages. Clang and LLVM are <a href="https://www.youtube.com/watch?v=yCd3CzGSte8">used in production</a> to compile all the apps in Apple's iPhone and iOS, Google's production server applications, Nintendo GameCube games, and Sony's Playstation 4 games.</p>
+<p>In addition to Clang, other front-end compilers to support multiple languages, such as Python, TensorFlow, Halide, Julia, Swift, and Fortran, can compile to LLVM. Thus, all those languages can exploit the same LLVM compilation infrastructure for compiler optimization passes and back-end machine code generation. The LLVM back-end compiler supports the x86, x86-64, PowerPC (PPC), Nvidia Parallel Thread Execution (PTX), AMD Graphics Core Next (GCN), Arm, and other architectures.</p>
+<p>LLVM does not support domain-specific expressions and types. Therefore, domain-specific SSA-based IRs, such as those shown in Figure <a href="../ch08/#fig:llvm-frontends">8.6</a>, should be used for optimizations that are too high-level for LLVM. A higher-level IR provides better location tracking to improve debuggability, traceability, and user experience. However, this comes at the expense of heavier infrastructure and some duplication in the domain-specific IR and LLVM IR optimizations.</p>
+<div id="fig:llvm-frontends"></div>
+<p><img alt="" src="../figures/ch08-06.png" />
+<em>Figure 8.6:</em> Many languages use a higher-level domain-specific IR for domain-specific optimizations before lowering to the LLVM IR. Based on [<a href="../biblio/#lattner2019">LP19</a>].</p>
+<p>Swift, Rust, Julia, and the TensorFlow library all use a higher-level IR. Swift uses the Swift High-Level IR (SIL), and TensorFlow uses XLA HLO before lowering to the LLVM IR. These higher-level IRs are similar to the LLVM IR but have domain-specific expressions and types; in particular, TensorFlow supports DL operators on tensors.</p>
+<div id="ch08.sec3.sub2"></div>
+<h3 id="832-intermediate-representation">8.3.2 Intermediate Representation</h3>
+<p>The LLVM IR code is a self-contained (complete code representation), strictly SSA, strongly-typed, and mostly TAC language with well-defined semantics. It has three isomorphic forms: (1) an on-disk binary "bitcode" format (<code>*.bc</code>); (2) an assembly-like human readable/writable textual format (<code>*.ll</code>); and (3) an in-memory CFG data structure to which other front-ends can lower. LLVM provides tools to convert between these forms.</p>
+<p>The LLVM IR has a simple architecture-independent instruction set made up of the following components: (1) operator instructions, (2) operands, (3) control-flow, and (4) <code>phi</code> nodes to manage the data flow. Additional <a href="http://www.llvm.org/devmtg/2016-11/Slides/Finkel-IntrinsicsMetadataAttributes.pdf">concepts</a> not discussed are intrinsics, metadata, and attributes. The following is a simple LLVM IR code sample that uses the first three of the four components mentioned above.</p>
+<pre><code class="language-c">declare i32 @f(i32 %z)
+
+define i32 @p(i32 %a, i32 %b) {
+entry:
+    %0 = mul i32 %a,%b
+    %1 = call i32 @f(i32 %0)
+    %2 = mul i32 %0, %1
+    ret i32 %2
+}
+</code></pre>
+<p>In line <span class="arithmatex">\(1\)</span>, the function <code>@f</code> with value <code>%z</code> is declared. In line <span class="arithmatex">\(3\)</span>, the function <code>@p</code> with integer arguments <code>%a</code> and <code>%b</code> is defined. <code>%0</code> equals the product of <code>%a</code> and <code>%b</code>; <code>%1</code> equals the returned value of function <code>@f</code> with argument <code>%0</code>; <code>%2</code> equals the product of <code>%0</code> and <code>%1</code>; and <code>%2</code> is returned value.</p>
+<p>A <code>phi</code> node is an instruction used to <a href="http://www.llvmpy.org/llvmpy-doc/dev/doc/llvm_concepts.html">merge</a> multiple control-flow paths and multiple definitions of a variable selecting which definition to use. In the CFG, the <code>phi</code> instruction, when used, is always at the start of a basic block. The <code>phi</code> node has multiple pairs of operands; each pair consists of a value and a reference to a basic block. The basic blocks are the immediate predecessors to the basic block in which the <code>phi</code> instruction is located.</p>
+<div id="ch08.sec3.sub3"></div>
+<h3 id="833-back-end-compilers">8.3.3 Back-End Compilers</h3>
+<p>The optimized LLVM IR is passed to the LLVM back-end compiler for ISA code generation. The LLVM code generator provides many optimization passes by default. A programmer writing a new back-end compiler from the LLVM IR to a target architecture can use, overwrite, or add to the default passes. This flexibility allows the back-end compiler programmer to choose what makes sense for an architecture and reuse existing capabilities.</p>
+<div id="ch08.sec3.sub4"></div>
+<h3 id="834-gcc-comparison">8.3.4 GCC Comparison</h3>
+<p>The most popular compilers are LLVM and the GNU compiler collection (GCC). GCC is a compiler program primarily written in C to compile various high-level languages to machine code. The GCC acronym has two different meanings: the <em>GNU C Compiler</em>, a C compiler, and the <em>GNU Compiler Collection</em>, a collection of compilers for the C/C++, Objective-C, Java, and Fortran programming languages. GCC began as a C compiler and evolved to support other languages. Today, GCC is the default compiler in Linux, and Clang/LLVM is the <a href="https://clang.llvm.org/get_started.html">default</a> compiler in macOS. A high-level comparison between GCC and LLVM follows:</p>
+<div id="fig:gcc"></div>
+<p><img alt="" src="../figures/ch08-07.png" />
+<em>Figure 8.7:</em> GCC can be used for the front-end, middle-end, and back-end compilation.</p>
+<ul>
+<li>
+<p>Performance: Relatively <a href="https://www.youtube.com/watch?v=yCd3CzGSte8">similar</a> today (historically, GCC was faster).</p>
+</li>
+<li>
+<p>Modularity: LLVM is more modular.</p>
+</li>
+<li>
+<p>IR: LLVM IR is a complete code representation (although it is not intended to be used to write programs). GCC's IR (called GIMPLE) is not.</p>
+</li>
+<li>
+<p>Adoption: GCC has larger adoption; both have a large community of developers.</p>
+</li>
+<li>
+<p>License: GCC's GPL license requires developers who distribute extensions or modified versions of GCC to make their source code available unlike LLVM's <a href="https://llvm.org/LICENSE.txt">Apache 2.0</a> license.</p>
+</li>
+</ul>
+<div id="ch08.sec4"></div>
+<h2 id="84-hardware-independent-optimizations">8.4 Hardware-Independent Optimizations</h2>
+<p>The overarching goal of hardware-independent optimizations is to reduce memory accesses and reduce the number of operations. To that end, the following set of optimization passes are common. In DL, some of these optimizations are referred to as graph compilations, and the most important is operator fusion.</p>
+<p><strong>Operator fusion</strong> merges operators (also known as graph nodes) to reduce memory accesses by not having to save the intermediate results in memory. It is applicable when the operators have compatible loop patterns with continuous (called <em>coalesced</em> in GPU parlance) memory access. To illustrate, a fused sigmoid operator (see Figure <a href="../ch08/#fig:activations">!!!FIX!!![fig:activations]</a>) computes the exponentiation, addition, and division components keeping the intermediate results in local caches or registers and only saving the final result to memory.</p>
+<p>Fused operators require that either the primitive libraries, such as oneDNN, MIOpen, and cuDNN, or that a back-end compiler provides or generates an optimized fused primitive to get the performance benefit. Thus, it is not entirely device-independent. Note that operator folding is a hardware-dependent operator fusion pass discussed in Section <a href="../ch08/#ch08.sec5">8.5</a>.</p>
+<p>The types of operator fusions are:</p>
+<ul>
+<li>
+<p>element-wise operator with another element-wise operator, for instance, the multiple element-wise operators in a sigmoid function;</p>
+</li>
+<li>
+<p>element-wise operator with a reduction operator, for instance, in the softmax function; and</p>
+</li>
+<li>
+<p>matrix-wise operator with an element-wise operator.</p>
+</li>
+</ul>
+<p>An example of the last bullet is a convolution or a GEMM operator fused with an activation function that operates on each element of the tensor, such as convolution followed by ReLU. The activation function is applied immediately after the output tensor value from the convolution is computed, and while this value is still in a register or scratchpad. Some of the fusion operators <a href="https://github.com/tensorflow/tensorflow/blob/r2.3/tensorflow/core/grappler/optimizers/remapper.cc">supported</a> by TensorFlow's built-in compiler, Grappler (introduced in Section <a href="../ch09/#ch09.sec2.sub6">9.2.6</a>), are:</p>
+<ul>
+<li>
+<p>Conv2D + BiasAdd + \&lt;Activation function></p>
+</li>
+<li>
+<p>Conv2D + FusedBatchNorm + \&lt;Activation function></p>
+</li>
+<li>
+<p>MatMul + BiasAdd + \&lt;Activation function></p>
+</li>
+<li>
+<p>FusedBatchNorm + \&lt;Activation function></p>
+</li>
+</ul>
+<p>As an example of the fusion benefits, Intel <a href="https://conferences.oreilly.com/artificial-intelligence/ai-ny-2019/public/schedule/detail/75130">reported</a> around <span class="arithmatex">\(80\times\)</span> performance gain for batch size <span class="arithmatex">\(1\)</span> fusing group convolutions in the MobileNet v1 model [<a href="../biblio/#straw2019">SPE19</a>]. In group convolution (introduced in Section <a href="../ch3./#ch3.sec2.sub1">3.</a>), the different feature channels across a data batch are divided up into groups processed independently. The fused group convolution is jointly processed as a single DL operator, as shown in Figure <a href="../ch08/#fig:fused-group-conv">8.8</a>.</p>
+<div id="fig:fused-group-conv"></div>
+<p><img alt="" src="../figures/ch08-08.png" />
+<em>Figure 8.8:</em> (a) A group of convolutions used in MobileNet v1. (b) A fused operator can be jointly optimized for the entire group. Based on [<a href="../biblio/#straw2019">SPE19</a>].</p>
+<p><strong>Loop permutations</strong> modify loop indices to improve memory access. Some permutations, such as loop tiling, are target-dependent and are discussed in the next section. An example of permutation is interchanging <code>for</code> loops, as shown in the following code. The indices are interchanged to have coalesced memory accesses, which are faster than strided memory access.</p>
+<pre><code class="language-cpp">// before loop permutations
+for (i=0; i&lt;N; i++)
+  for (j=0; j&lt;M; j++)
+    x[j][i] = y[j][i]; // strided memory access
+</code></pre>
+<pre><code class="language-cpp">// after loop permutations
+for (j=0; j&lt;M; j++)
+  for (i=0; i&lt;N; i++)
+    x[j][i] = y[j][i]; // coalesced memory access
+</code></pre>
+<p><strong>Arithmetic simplifications</strong> reduces the number of expressions and simplifies the code. Examples include these replacements:</p>
+<ul>
+<li>
+<p><span class="arithmatex">\(a\times x + b\times x + c\times x {\Rightarrow} (a + b + c)\times x\)</span></p>
+</li>
+<li>
+<p><span class="arithmatex">\(!(x &lt; y) {\Rightarrow} x\geq y\)</span></p>
+</li>
+<li>
+<p><span class="arithmatex">\(2\times x {\Rightarrow} x&lt;&lt;1\)</span> (for unsigned integers)</p>
+</li>
+<li>
+<p><span class="arithmatex">\(x-x {\Rightarrow} 0\)</span></p>
+</li>
+<li>
+<p><span class="arithmatex">\(x-0 {\Rightarrow} x\)</span></p>
+</li>
+<li>
+<p><span class="arithmatex">\((x\times 2)-x {\Rightarrow} x\)</span>.</p>
+</li>
+<li>
+<p><span class="arithmatex">\(A^{T}B^{T} {\Rightarrow} (BA)^{T}\)</span></p>
+</li>
+<li>
+<p><span class="arithmatex">\((A^{T}B^{T})^{T} {\Rightarrow} BA\)</span></p>
+</li>
+</ul>
+<p>The last two items are known as <strong>transpose eliminations</strong>, which are a subset of arithmetic simplifications. Some of the simplifications can lead to numeric differences compared to the original expression. Still, these differences are generally small and can be safely ignored in DL.</p>
+<p>During inference, the batch normalization expression can be incorporated into the convolution expression by scaling the weight values, as detailed in Section <a href="../ch02/#ch02.sec6">2.6</a>. While this is sometimes referred to as a fused operator, this optimization is an arithmetic simplification.</p>
+<p><strong>Constant propagation</strong> and <strong>constant folding</strong> substitute (propagate) known constants values in the expressions, and precompute (fold) constant expressions. Examples include these replacements:</p>
+<ul>
+<li>
+<p><span class="arithmatex">\(3\times 4 {\Rightarrow} 12\)</span></p>
+</li>
+<li>
+<p><span class="arithmatex">\(x=2;\ y=3\times x {\Rightarrow} y=6\)</span>.</p>
+</li>
+</ul>
+<p><strong>Dead code elimination (DCE)</strong> eliminates unused code. In the following code samples, the <code>if</code> expression is eliminated. Note that <code>a</code> has to be an integer (not a float).</p>
+<pre><code class="language-cpp">// before constant propagation and DCE
+int a=0;
+if (a)
+  mycode();
+</code></pre>
+<pre><code class="language-cpp">// after constant propagation
+int a=0;
+if (0)
+  mycode();
+</code></pre>
+<pre><code class="language-cpp">// after DCE
+int a=0;
+</code></pre>
+<p><strong>Common subexpression elimination (CSE)</strong> eliminates repeated common subexpressions computing them only once. In the following example, the expression <span class="arithmatex">\(a + b\)</span> is only computed once, after the CSE pass.</p>
+<pre><code class="language-cpp">// before CSE
+c = a + b
+d = a + b
+e = c + d
+</code></pre>
+<pre><code class="language-cpp">// after CSE
+c = a + b
+d = c
+e = c + d
+</code></pre>
+<p><strong>Inlining</strong>, also known as inlining expansion, (not to be confused with the unrelated C++ <em>inline</em> keyword) moves the code of the called function into the calling function. It saves the overhead of procedure calls and allows further optimizations at the calling function at the expense of a larger executable file and, therefore, longer load time and increased pressure on the instruction cache. A toy example follows:</p>
+<pre><code class="language-cpp">// before inlining
+myFunction(int x){
+  printf(&quot;%d\n&quot;, x);
+  printf(&quot;%d\n&quot;, x*x);
+}
+myFunction(a);
+myFunction(b);
+</code></pre>
+<pre><code class="language-cpp">// after inlining
+printf(&quot;%d\n&quot;, a);
+printf(&quot;%d\n&quot;, a*a);
+printf(&quot;%d\n&quot;, b);
+printf(&quot;%d\n&quot;, b*b);
+</code></pre>
+<p>Note that inlining <a href="https://en.wikipedia.org/wiki/Wrapper_function">wrapper functions</a> do not affect the size of the executable.</p>
+<p><strong>Loop-invariant code motion (LICM)</strong>, also called hoisting or scalar promotion, moves out expressions that are not required to be in the loop.</p>
+<p><strong>Memory to register promotion</strong> tries to <a href="https://llvm.org/docs/Passes.html#mem2reg-promote-memory-to-register">promote</a> memory references to be register references in order to reduce the number of memory loads and stores. The front-end and middle-end compilers assume an unlimited number of registers. Register assignment happens in the back-end compiler and is hardware-dependent.</p>
+<div id="ch08.sec5"></div>
+<h2 id="85-hardware-dependent-optimizations">8.5 Hardware-Dependent Optimizations</h2>
+<p>The overarching goal of hardware-dependent optimizations is to have coalesced memory access and maximize data reuse (or equivalently, maximize arithmetic intensity). To that end, the following set of optimization passes are common. In DL, some of these optimizations are referred to as tensor compilations.</p>
+<p><strong>Loop tiling</strong> modifies the loop to improve the locality of memory access in space and time. It is one of the most impactful optimizations and one of the most challenging given the number of tile sizes (also known as stencils) and blocking strategies across the memory hierarchy. Cache blocking and register blocking use loop tiling and data layout optimization passes to maximize data reuse and minimize memory and register conflicts. These conflicts are known as bank conflicts and result when loading and storing data to and from the same location.</p>
+<p>The goal of loop tiling optimization is to reuse data in local memory and reduce main memory accesses. This optimization tiles the loop so that the data in the inner loops fit into the local memory to increase reuse before it gets evicted. Loop strip-mining, also known as sectioning, is 1-dimensional tiling used for vectorization.</p>
+<p>The code below (based on [<a href="../biblio/#vladimirov2019">VAK19</a>]) demonstrates loop-tiling in two steps. In Step <span class="arithmatex">\(1\)</span>, the inner loop is split into two loops: an outer loop, known as the tiled (or blocked) loop, and an inner loop known as the element loop that fits into local memory. In Step <span class="arithmatex">\(2\)</span>, the outer two loops are permuted (swapped). This more efficient implementation reuses elements in the inner loop <span class="arithmatex">\(N\)</span> times before they get evicted from the local memory. In the code, <code>M</code> is assumed to be a multiple of <code>TILE</code>. Note that the loop indexed by <code>i</code> could also be tiled (not shown in the code).</p>
+<pre><code class="language-cpp">// Original code
+for (i = 0; i &lt; N; i++)
+  for (j = 0; j &lt; M; j++)
+    operation(x[i], y[j]);
+</code></pre>
+<pre><code class="language-cpp">// Step 1: Tiling
+for (i = 0; i &lt; N; i++)
+  for (jj = 0; jj &lt; M; jj += TILE)
+    for (j = jj; j &lt; jj + TILE; j++)
+      operation(x[i], y[j]);
+</code></pre>
+<pre><code class="language-cpp">// Step 2: Permuting
+for (jj = 0; jj &lt; M; jj += TILE)
+  for (i = 0; i &lt; N; i++)
+    for (j = jj; j &lt; jj + TILE; j++)
+      operation(x[i], y[j]);
+</code></pre>
+<p>The optimal stencil (tile size) is unique to each microarchitecture and is a parameter the compiler has to select, adding complexity to the solution space. One algorithm to facilitate the selection is the Cache-Oblivious Recursion <a href="https://www.computer.org/csdl/proceedings-article/focs/1999/04090285/12OmNwE9OA0">algorithm</a> [<a href="../biblio/#frigo1999">FLP+99</a>].</p>
+<p><strong>Polyhedral</strong> is a compiler technique that results in a set of loop transformations used for efficient code generation. Note that some of the polyhedral transformations are hardware-independent. A polyhedral representation specifies the boundary of a polyhedron (the index space of a tensor expression). The polyhedral-based compilations provide a set of (usually affine) loop transformations, such as loop tiling, to facilitate efficient code generation on a hardware target.</p>
+<p>Polyhedral compilation techniques are conventional in HPC and image processing. The challenge is the NP-complete algorithms, such as integer linear programming (<a href="https://en.wikipedia.org/wiki/Integer_programming">ILP</a>) solvers or other exponential algorithms required, which limit scalability.</p>
+<p>An affine representation is a <a href="https://github.com/llvm/llvm-project/blob/master/mlir/docs/Rationale/RationaleSimplifiedPolyhedralForm.md">simplified</a> polyhedral representation with <code>for</code> loops and <code>if</code> control structure ops. An <a href="https://en.wikipedia.org/wiki/Affine_transformation">affine transformation</a> applies a unique affine function to each element of a tensor and preserves the dimensions of the tensor. An affine compilation does not require the use of ILP or any other NP-complete algorithms. The DL compilers PlaidML, TVM, and MLIR dialects, such as LinAlg and Affine, use polyhedral-based (typically, affine-based) loop transformations. Chapter <a href="../ch09/#ch09">9</a> covers these compilers.</p>
+<p><strong>Data layout</strong>, also known as memory format, memory layout, or tensor layout transformations, modifies the data layout so it is efficiently accessed. As reviewed in Section <a href="../ch02/#ch02.sec3">2.3</a>, standard data layouts used by the main frameworks are <span class="arithmatex">\(NCHW\)</span> or <span class="arithmatex">\(NHWC\)</span>, and <span class="arithmatex">\(RSCK\)</span> or <span class="arithmatex">\(KCRS\)</span> for the weight tensors. These data layouts are referred to as plain formats or native formats (native or default to the DL framework).</p>
+<p>Data in memory is arranged as a 1D vector. The <span class="arithmatex">\(NCHW\)</span> format means the width values are the innermost dimension and are adjacent in memory. The memory index offset for a given index <span class="arithmatex">\(n,c,h,w \in N,C,H,W\)</span> is </p>
+<div class="arithmatex">\[\mbox{offset}(n, c, h, w) = n \times \mathit{CHW} + c\times HW + h\times W + w.\]</div>
+<p>TensorFlow and PyTorch natively support both <span class="arithmatex">\(NCHW\)</span> and <span class="arithmatex">\(NHWC\)</span> with <span class="arithmatex">\(NCHW\)</span> as the default layout. ONNX only supports <span class="arithmatex">\(NCHW\)</span>. FBGEMM and the Quantized Neural Networks PACKage (QNNPACK) support <span class="arithmatex">\(NHWC\)</span> but not <span class="arithmatex">\(NCHW\)</span>. LIBrary for eXtra Small Matrix Multiplies (LIBXSMM) supports both but is optimized for <span class="arithmatex">\(NHWC\)</span>.</p>
+<p>The data layout can be modified to achieve better reuse from cache (also known as local memory in AMD GPUs or shared memory in Nvidia GPUs), scratchpad, and registers to use SIMD, SIMT, or dataflow instructions more effectively. To illustrate, one of the <a href="https://oneapi-src.github.io/oneDNN/understanding_memory_formats.html">layouts</a> used by oneDNN for CPUs for architectures with <span class="arithmatex">\(512\)</span>-bit registers and <span class="arithmatex">\(fp32\)</span> values is the 5D tensor </p>
+<div class="arithmatex">\[N\hat{C}\mathit{HW}16\hat{c}.\]</div>
+<p>This format blocks (tiles) the channel dimension in blocks of <span class="arithmatex">\(16\)</span> to fit into a 512-bit (<span class="arithmatex">\(16\)</span> <span class="arithmatex">\(fp32\)</span> values) register. The memory index offset, using the <span class="arithmatex">\(N\hat{C}\mathit{HW}16\hat{c}\)</span> layout, is: </p>
+<div class="arithmatex">\[\mbox{offset}(n, c, h, w) = n\times \mathit{CHW} + \left\lfloor{\frac{c}{16}}\right\rfloor\times 16\mathit{HW} + h\times 16W + w\times 16 + (c \bmod 16),\]</div>
+<p>where <span class="arithmatex">\(\lfloor{\cdot}\rfloor\)</span> is the floor operator. Using <a href="https://oneapi-src.github.io/oneDNN/understanding_memory_formats.html">this layout format</a>, the data is fed as <span class="arithmatex">\(16\)</span> consecutive <span class="arithmatex">\(fp32\)</span> values into a register from the same <span class="arithmatex">\(n,h,w\)</span> indices but different channels and processed in parallel using SIMD instructions. A channel size multiple of <span class="arithmatex">\(16\)</span> is beneficial for this blocked format.</p>
+<p>The cuDNN primitive library typically uses the <span class="arithmatex">\(NCHW\)</span> layout. However, newer GPUs, such as the V100, <a href="https://docs.nvidia.com/deeplearning/sdk/dl-performance-guide/index.html">prefer</a> the <span class="arithmatex">\(NHWC\)</span> layout for <span class="arithmatex">\(fp16\)</span> computations with <span class="arithmatex">\(C\)</span> being a multiple of <span class="arithmatex">\(8\)</span> to use the available tensor cores efficiently. Padding the channels with zeros to the desired size can improve the computational efficiency. Note that TensorRT supports blocked formats to achieve the highest performance on some workloads.</p>
+<p>Depending on the operands, different layout strategies result in better performance. For instance, the convolution function potentially uses three different tensor layout strategies depending on the operand sizes:</p>
+<ol>
+<li>
+<p>one layout for operands with a small number of channels;</p>
+</li>
+<li>
+<p>one layout for operands with a large number of input activations; and</p>
+</li>
+<li>
+<p>one layout for operands with a large number of weights.</p>
+</li>
+</ol>
+<p>The <span class="arithmatex">\(\mathit{im2col}\)</span> GEMM-based convolution, discussed in Section <a href="../ch02/#ch02.sec3">2.3</a>, can be used when none of the layout strategies are well optimized for the particular operand size. Similarly, the operands in a GEMM expression also use different layouts.</p>
+<p>Layout optimizations involve inserting layout conversion nodes in the computation graph. The overall performance gains from the more efficient data layout should consider the data layout conversion time to determine if it has a net performance gain. A related graph-level optimization pass involves reducing the number of layout conversions by keeping the tensors in a blocked layout for as many nodes as possible before converting back to the default graph data layout.</p>
+<p><strong>Operator folding (ISA matching)</strong> combines two operators into one supported by a hardware instruction. For instance, the hardware may support a fused multiply-and-add (FMA) operator, in which case a fused operator, such as <span class="arithmatex">\(a * b + c\)</span>, can speed up the program execution.</p>
+<p><strong>Micro-kernel</strong> and <strong>intrinsic matching</strong> matches and replaces a block of computations with the corresponding micro-kernel or corresponding hardware intrinsic.</p>
+<p><strong>Memory allocation</strong>, also known as static memory planning, preallocates runtime memory to hold the tensors and determines memory reuse and in-place computations.</p>
+<p><strong>Memory transfers</strong>, also known as explicit memory latency handling, is used in conjunction with the memory allocation pass. It adds memory access instructions to transfer data to and from memory banks to overlap memory transfers with computations. This optimization is even more critical for accelerators with limited control logic, as they have a limited ability to reduce memory access latencies or hide them within the computation. CPUs and GPUs have built-in mechanisms that hide the memory transfer latency, such as speculative prefetching. Some CPUs also have simultaneous multithreading (SMT), which keeps several threads persistent on a unit and interleave their executions to cover latencies.</p>
+<p>Accelerators usually do not have caches but rather scratchpads, which need to be managed explicitly by software. Outsourcing memory control from the hardware to the software is a common ASIC design choice to reduce the size of the die and save power. For instance, the control logic of the TPU is small and only <a href="https://cloud.google.com/blog/products/gcp/an-in-depth-look-at-googles-first-tensor-processing-unit-tpu">takes</a> <span class="arithmatex">\(2\%\)</span> of the die (the control logic in a GPU or a CPU is significantly larger) [<a href="../biblio/#sato2017">SYP17</a>].</p>
+<p><strong>Memory fetch sharing</strong>, also known as nested parallelism with cooperation, improves fetching data, from memory. Threads with local shared memory space cooperatively fetch data from higher levels in the memory hierarchy. GPU and accelerators with local shared memory benefit from this optimization.</p>
+<p><strong>Device placement</strong> evaluates the various back-end hardware targets and determines a strategy to allocate the execution of subgraphs to each available device.</p>
+<p><strong>Operator scheduling</strong> specifies which operators to schedule and their execution order, to reduce runtime memory usage and output latency.</p>
+<p><strong>Loop unrolling</strong> replaces the statements in the loop body with multiple statements to (1) reduce the number of loop control instructions, (2) improve parallelism if the statements are independent, and (3) reduce the branch penalty. Each iteration of the resulting loop executes multiple iterations of the original loop. This optimization typically increases the size of the binary. A toy example follows:</p>
+<pre><code class="language-cpp">// Before loop unrolling
+for (i = 0; i&lt;100; i++)
+  x[i] = i;
+</code></pre>
+<pre><code class="language-cpp">// After loop unrolling
+for (i=0; i&lt;100; i+=4){
+  x[i] = i;
+  x[i+1] = i + 1;
+  x[i+2] = i + 2;
+  x[i+3] = i + 3; }
+</code></pre>
+<p>When the number of loop iterations is not known until runtime, an AOT compiler can generate several versions of the loop with different unrolling factors, or alternatively, a JIT compiler can be used.</p>
+<p><strong>Loop splitting</strong> splits the loop iterations into multiple loops if the iterations are not dependent on each other and can execute in parallel. A toy example follows:</p>
+<pre><code class="language-cpp">// Before loop splitting
+for (i = 0; i&lt;100; i++)
+  printf( &quot;Iteration %d\n&quot; , i);
+</code></pre>
+<pre><code class="language-cpp">// After loop splitting
+for (i = 0; i&lt;25; i++)
+  printf(&quot;Iteration %d\n&quot;, i);
+for (i = 25; i&lt;50; i++)
+  printf(&quot;Iteration %d\n&quot;, i);
+for (i = 50; i&lt;75; i++)
+  printf(&quot;Iteration %d\n&quot;, i);
+for (i = 75; i&lt;100; i++)
+  printf(&quot;Iteration %d\n&quot;, i);
+</code></pre>
+<p><strong>Loop fission</strong>, also known as loop distribution, splits the body of a loop if the components are not dependent on each other and can execute in parallel. Note that the reverse is called loop fusion which unites multiple loops into a single loop. To illustrate:</p>
+<pre><code class="language-cpp">// Before loop fission
+for (i = 0; i&lt;100; i++){
+  a[i] = 3 * i;
+  b[i] = 4 * i; }
+</code></pre>
+<pre><code class="language-cpp">// After loop fission
+for (i = 0; i&lt;100; i++)
+  a[i] = 3 * i;
+for (i = 0; i&lt;100; i++)
+  b[i] = 4 * i;
+</code></pre>
+<p>In this chapter, we review the basics of programming languages and compilers that map high-level languages to machine code. We highlighted standard compiler optimization passes to accelerate the execution of DL models, particularly fusing element-wise operations into dense linear operations. Compilers are imperative for the success of dedicated DL processors; manually optimizing a model to perform well on a back-end target is extremely costly and not scalable across several targets. In the next chapter, we discussed prominent DL compilers used by hardware vendors and hyperscalers.</p>
+
+  <br>
+    
+
+    
+    
+      
+    
+
+  <div class="row wm-article-nav-buttons" role="navigation" aria-label="navigation">
+    
+    <div class="wm-article-nav pull-right">
+      <a href="../ch09/" class="btn btn-xs btn-default pull-right">
+        Next
+        <i class="fa fa-chevron-right" aria-hidden="true"></i>
+      </a>
+      <a href="../ch09/" class="btn btn-xs btn-link">
+        Chapter 9: Frameworks and Compilers
+      </a>
+    </div>
+    
+    <div class="wm-article-nav">
+      <a href="../ch07/" class="btn btn-xs btn-default pull-left">
+        <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        Previous</a><a href="../ch07/" class="btn btn-xs btn-link">
+        Chapter 7: Hardware
+      </a>
+    </div>
+    
+  </div>
+
+    <br>
+</div>
+
+<footer class="container-fluid wm-page-content">
+  <p>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a> using <a href="https://github.com/gristlabs/mkdocs-windmill">Windmill</a> theme by Grist Labs.</p>
+</footer>
+
+</body>
+</html>
