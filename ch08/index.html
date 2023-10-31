@@ -252,19 +252,19 @@ entry:
 <p>An example of the last bullet is a convolution or a GEMM operator fused with an activation function that operates on each element of the tensor, such as convolution followed by ReLU. The activation function is applied immediately after the output tensor value from the convolution is computed, and while this value is still in a register or scratchpad. Some of the fusion operators <a href="https://github.com/tensorflow/tensorflow/blob/r2.3/tensorflow/core/grappler/optimizers/remapper.cc">supported</a> by TensorFlow's built-in compiler, Grappler (introduced in Section <a href="../ch09/#ch09.sec2.sub6">9.2.6</a>), are:</p>
 <ul>
 <li>
-<p>Conv2D + BiasAdd + \&lt;Activation function></p>
+<p>Conv2D + BiasAdd + <span class="arithmatex">\(&lt;\)</span> Activation function <span class="arithmatex">\(&gt;\)</span></p>
 </li>
 <li>
-<p>Conv2D + FusedBatchNorm + \&lt;Activation function></p>
+<p>Conv2D + FusedBatchNorm + <span class="arithmatex">\(&lt;\)</span> Activation function <span class="arithmatex">\(&gt;\)</span></p>
 </li>
 <li>
-<p>MatMul + BiasAdd + \&lt;Activation function></p>
+<p>MatMul + BiasAdd + <span class="arithmatex">\(&lt;\)</span> Activation function <span class="arithmatex">\(&gt;\)</span></p>
 </li>
 <li>
-<p>FusedBatchNorm + \&lt;Activation function></p>
+<p>FusedBatchNorm + <span class="arithmatex">\(&lt;\)</span> Activation function <span class="arithmatex">\(&gt;\)</span></p>
 </li>
 </ul>
-<p>As an example of the fusion benefits, Intel <a href="https://conferences.oreilly.com/artificial-intelligence/ai-ny-2019/public/schedule/detail/75130">reported</a> around <span class="arithmatex">\(80\times\)</span> performance gain for batch size <span class="arithmatex">\(1\)</span> fusing group convolutions in the MobileNet v1 model [<a href="../biblio/#straw2019">SPE19</a>]. In group convolution (introduced in Section <a href="../ch3./#ch3.sec2.sub1">3.</a>), the different feature channels across a data batch are divided up into groups processed independently. The fused group convolution is jointly processed as a single DL operator, as shown in Figure <a href="../ch08/#fig:fused-group-conv">8.8</a>.</p>
+<p>As an example of the fusion benefits, Intel <a href="https://conferences.oreilly.com/artificial-intelligence/ai-ny-2019/public/schedule/detail/75130">reported</a> around <span class="arithmatex">\(80\times\)</span> performance gain for batch size <span class="arithmatex">\(1\)</span> fusing group convolutions in the MobileNet v1 model [<a href="../biblio/#straw2019">SPE19</a>]. In group convolution (introduced in Section <a href="../ch03/#ch03.sec2.sub1">3.2.1</a>), the different feature channels across a data batch are divided up into groups processed independently. The fused group convolution is jointly processed as a single DL operator, as shown in Figure <a href="../ch08/#fig:fused-group-conv">8.8</a>.</p>
 <div id="fig:fused-group-conv"></div>
 <p><img alt="" src="../figures/ch08-08.png" />
 <em>Figure 8.8:</em> (a) A group of convolutions used in MobileNet v1. (b) A fused operator can be jointly optimized for the entire group. Based on [<a href="../biblio/#straw2019">SPE19</a>].</p>
@@ -391,11 +391,11 @@ for (jj = 0; jj &lt; M; jj += TILE)
 <p>Data in memory is arranged as a 1D vector. The <span class="arithmatex">\(NCHW\)</span> format means the width values are the innermost dimension and are adjacent in memory. The memory index offset for a given index <span class="arithmatex">\(n,c,h,w \in N,C,H,W\)</span> is </p>
 <div class="arithmatex">\[\mbox{offset}(n, c, h, w) = n \times \mathit{CHW} + c\times HW + h\times W + w.\]</div>
 <p>TensorFlow and PyTorch natively support both <span class="arithmatex">\(NCHW\)</span> and <span class="arithmatex">\(NHWC\)</span> with <span class="arithmatex">\(NCHW\)</span> as the default layout. ONNX only supports <span class="arithmatex">\(NCHW\)</span>. FBGEMM and the Quantized Neural Networks PACKage (QNNPACK) support <span class="arithmatex">\(NHWC\)</span> but not <span class="arithmatex">\(NCHW\)</span>. LIBrary for eXtra Small Matrix Multiplies (LIBXSMM) supports both but is optimized for <span class="arithmatex">\(NHWC\)</span>.</p>
-<p>The data layout can be modified to achieve better reuse from cache (also known as local memory in AMD GPUs or shared memory in Nvidia GPUs), scratchpad, and registers to use SIMD, SIMT, or dataflow instructions more effectively. To illustrate, one of the <a href="https://oneapi-src.github.io/oneDNN/understanding_memory_formats.html">layouts</a> used by oneDNN for CPUs for architectures with <span class="arithmatex">\(512\)</span>-bit registers and <span class="arithmatex">\(fp32\)</span> values is the 5D tensor </p>
+<p>The data layout can be modified to achieve better reuse from cache (also known as local memory in AMD GPUs or shared memory in Nvidia GPUs), scratchpad, and registers to use SIMD, SIMT, or dataflow instructions more effectively. To illustrate, one of the <a href="https://oneapi-src.github.io/oneDNN/dev_guide_understanding_memory_formats.html">layouts</a> used by oneDNN for CPUs for architectures with <span class="arithmatex">\(512\)</span>-bit registers and <span class="arithmatex">\(fp32\)</span> values is the 5D tensor </p>
 <div class="arithmatex">\[N\hat{C}\mathit{HW}16\hat{c}.\]</div>
 <p>This format blocks (tiles) the channel dimension in blocks of <span class="arithmatex">\(16\)</span> to fit into a 512-bit (<span class="arithmatex">\(16\)</span> <span class="arithmatex">\(fp32\)</span> values) register. The memory index offset, using the <span class="arithmatex">\(N\hat{C}\mathit{HW}16\hat{c}\)</span> layout, is: </p>
 <div class="arithmatex">\[\mbox{offset}(n, c, h, w) = n\times \mathit{CHW} + \left\lfloor{\frac{c}{16}}\right\rfloor\times 16\mathit{HW} + h\times 16W + w\times 16 + (c \bmod 16),\]</div>
-<p>where <span class="arithmatex">\(\lfloor{\cdot}\rfloor\)</span> is the floor operator. Using <a href="https://oneapi-src.github.io/oneDNN/understanding_memory_formats.html">this layout format</a>, the data is fed as <span class="arithmatex">\(16\)</span> consecutive <span class="arithmatex">\(fp32\)</span> values into a register from the same <span class="arithmatex">\(n,h,w\)</span> indices but different channels and processed in parallel using SIMD instructions. A channel size multiple of <span class="arithmatex">\(16\)</span> is beneficial for this blocked format.</p>
+<p>where <span class="arithmatex">\(\lfloor{\cdot}\rfloor\)</span> is the floor operator. Using <a href="https://oneapi-src.github.io/oneDNN/dev_guide_understanding_memory_formats.html">this layout format</a>, the data is fed as <span class="arithmatex">\(16\)</span> consecutive <span class="arithmatex">\(fp32\)</span> values into a register from the same <span class="arithmatex">\(n,h,w\)</span> indices but different channels and processed in parallel using SIMD instructions. A channel size multiple of <span class="arithmatex">\(16\)</span> is beneficial for this blocked format.</p>
 <p>The cuDNN primitive library typically uses the <span class="arithmatex">\(NCHW\)</span> layout. However, newer GPUs, such as the V100, <a href="https://docs.nvidia.com/deeplearning/sdk/dl-performance-guide/index.html">prefer</a> the <span class="arithmatex">\(NHWC\)</span> layout for <span class="arithmatex">\(fp16\)</span> computations with <span class="arithmatex">\(C\)</span> being a multiple of <span class="arithmatex">\(8\)</span> to use the available tensor cores efficiently. Padding the channels with zeros to the desired size can improve the computational efficiency. Note that TensorRT supports blocked formats to achieve the highest performance on some workloads.</p>
 <p>Depending on the operands, different layout strategies result in better performance. For instance, the convolution function potentially uses three different tensor layout strategies depending on the operand sizes:</p>
 <ol>
@@ -495,7 +495,7 @@ for (i = 0; i&lt;100; i++)
 </div>
 
 <footer class="container-fluid wm-page-content">
-  <p>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a> using <a href="https://github.com/gristlabs/mkdocs-windmill">Windmill</a> theme by Grist Labs.</p>
+  <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a> using <a href="https://github.com/gristlabs/mkdocs-windmill">Windmill</a> theme by Grist Labs.</p>
 </footer>
 
 </body>
