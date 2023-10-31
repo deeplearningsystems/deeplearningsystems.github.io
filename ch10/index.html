@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  
+  
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    
+    
+    <link rel="shortcut icon" href="../img/favicon.ico">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+    <title>Chapter 10: Opportunities and Challenges - Deep Learning Systems: Algorithms, Compilers, and Processors for Large-Scale Production</title>
+    <link href="../css/bootstrap-3.3.7.min.css" rel="stylesheet">
+    <link href="../css/font-awesome-4.7.0.css" rel="stylesheet">
+    <link href="../css/base.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/highlight.css">
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+    <![endif]-->
+
+    <script src="../js/jquery-3.2.1.min.js"></script>
+    <script src="../js/bootstrap-3.3.7.min.js"></script>
+    <script src="../js/highlight.pack.js"></script>
+    
+    <base target="_top">
+    <script>
+      var base_url = '..';
+      var is_top_frame = false;
+        
+        var pageToc = [
+          {title: "Chapter 10: Opportunities and Challenges", url: "#_top", children: [
+              {title: "10.1 Machine Learning for DL Systems", url: "#101-machine-learning-for-dl-systems" },
+              {title: "10.2 Democratizing DL Platforms", url: "#102-democratizing-dl-platforms" },
+              {title: "10.3 Security", url: "#103-security" },
+              {title: "10.4 Interpretability", url: "#104-interpretability" },
+              {title: "10.5 Society Impact", url: "#105-society-impact" },
+              {title: "10.6 Concluding Remarks", url: "#106-concluding-remarks" },
+          ]},
+        ];
+
+    </script>
+    <script src="../js/base.js"></script>
+      <script src="../javascripts/config.js"></script>
+      <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script> 
+</head>
+
+<body>
+<script>
+if (is_top_frame) { $('body').addClass('wm-top-page'); }
+</script>
+
+
+
+<div class="container-fluid wm-page-content">
+  <a name="_top"></a>
+    
+
+    
+    
+      
+    
+
+  <div class="row wm-article-nav-buttons" role="navigation" aria-label="navigation">
+    
+    <div class="wm-article-nav pull-right">
+      <a href="../biblio/" class="btn btn-xs btn-default pull-right">
+        Next
+        <i class="fa fa-chevron-right" aria-hidden="true"></i>
+      </a>
+      <a href="../biblio/" class="btn btn-xs btn-link">
+        Bibliography
+      </a>
+    </div>
+    
+    <div class="wm-article-nav">
+      <a href="../ch09/" class="btn btn-xs btn-default pull-left">
+        <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        Previous</a><a href="../ch09/" class="btn btn-xs btn-link">
+        Chapter 9: Frameworks and Compilers
+      </a>
+    </div>
+    
+  </div>
+
+    
+
+    <div id="ch10"></div>
+<h1 id="chapter-10-opportunities-and-challenges">Chapter 10: Opportunities and Challenges</h1>
+<p>In this concluding chapter, we discuss some of the opportunities and challenges ahead. The opportunities include using ML techniques to improve various aspects of the overall DL system. The challenges include security, interpretability, and the potential negative social impact, such as polarization, unemployment, power consumption, and copyright violations. We then provide some concluding remarks.</p>
+<div id="ch10.sec1"></div>
+<h2 id="101-machine-learning-for-dl-systems">10.1 Machine Learning for DL Systems</h2>
+<p>ML (in particular, RL) can improve DL systems across various levels of the system stack. While <a href="https://ieeexplore.ieee.org/abstract/document/9065601">more advances are needed</a> to broadly use ML for DL system design, the success of <a href="https://arxiv.org/abs/1911.08265">MuZero</a> finding good solutions in a huge search space suggests that similar techniques can provide solutions to other domains with large search spaces. These domains include integrated circuit designs, graph and primitive compilations, efficient and accurate topology designs, server and cluster configurations, and data center operations [<a href="../biblio/#yin2020">YSE+20</a>; <a href="../biblio/#schrittwieser2020">SAH+20</a>]. While ML for DL systems is a promising area, most of the work is in early stages, with limited adoption in production. Some areas where ML has been useful are [<a href="../biblio/#zoph2017">ZL17</a>; <a href="../biblio/#he2019-b">HLL+19</a>; <a href="../biblio/#rakelly2019">RZQ+19</a>; <a href="../biblio/#chen2018">CMJ+18</a>; <a href="../biblio/#morcos2019">MYP+19</a>; <a href="../biblio/#kraska2018">KBC+18</a>; <a href="../biblio/#wang2019-f">WWS+19</a>; <a href="../biblio/#mirhoseini2018">MGP+18</a>; <a href="../biblio/#wang2020">WYL+20</a>; <a href="../biblio/#evans2016">EG16</a>]:</p>
+<ul>
+<li>
+<p>Integrated circuit (IC) <a href="https://arxiv.org/abs/1812.02734">design</a>, which currently relies heavily on a human expert's experience and intuition.</p>
+</li>
+<li>
+<p>AutoML and <a href="https://arxiv.org/abs/1611.01578">NAS</a>, discussed in more detail below.</p>
+</li>
+<li>
+<p>Transfer learning via <a href="https://arxiv.org/abs/1903.08254">Meta-learning</a>.</p>
+</li>
+<li>
+<p>Schedule space <a href="https://www.usenix.org/conference/osdi18/presentation/chen">search</a>.</p>
+</li>
+<li>
+<p>Weight <a href="https://arxiv.org/abs/1906.02773">initialization</a>.</p>
+</li>
+<li>
+<p>Layer <a href="https://arxiv.org/abs/1811.08886">quantization</a> based on latency, energy, and accuracy requirement.</p>
+</li>
+<li>
+<p>Model <a href="https://arxiv.org/abs/1802.03494">compression</a>.</p>
+</li>
+<li>
+<p>Index <a href="https://arxiv.org/abs/1712.01208">data structures</a> (faster and with less memory than B-Trees and Bloom filters).</p>
+</li>
+<li>
+<p>Device <a href="https://openreview.net/pdf?id=Hkc-TeZ0W">placement</a> for model parallelism.</p>
+</li>
+<li>
+<p>Power <a href="https://deepmind.google/discover/blog/deepmind-ai-reduces-google-data-centre-cooling-bill-by-40/">reduction</a> in hyperscale data centers.</p>
+</li>
+</ul>
+<p><strong>AutoML</strong> is the field of using ML to learn a DL model, tune the hyperparameters of an existing model, or compress a model. AutoML can reduce the data scientist's burden in model searching or parameter tuning at the expense of significant additional computations. <strong>Neural architecture search</strong> (NAS) is an area within AutoML that learns a model for a particular task, dataset, and hardware target by searching a constraint space of models or a subgraph within a larger graph. In practice, transfer learning is a more common technique used in production. In the future, hyperscalers may use NAS-based techniques to learn good models for a particular hardware architecture. Smaller companies can then use transfer learning on those learned models or use meta-learning methods, discussed later in this section.</p>
+<p>Prominent NAS models are as follows: <a href="https://arxiv.org/abs/1611.01578">NASNet</a> uses RL to learn an architectural building block using a smaller dataset (CIFAR-10) and then transfers that learned building block to learn a model using a more complex dataset (ImageNet) [<a href="../biblio/#zoph2017">ZL17</a>]. NASNet has a superior Pareto curve on accuracy vs. the number of operations compared to human-designed models. <a href="https://arxiv.org/abs/1802.01548">AmoebaNet</a> uses evolutionary algorithms to search the space faster than RL [<a href="../biblio/#real2019">RAH+19</a>]. <a href="https://arxiv.org/abs/1905.11946">EfficientNet</a> and <a href="https://arxiv.org/abs/1911.09070">EfficientDet</a> are a family of models that uses a base network that scales across depth and width with better Pareto curve than NASNet and AmoebaNet [<a href="../biblio/#tan2019-b">TL19</a>; <a href="../biblio/#tan2019">TPL19</a>].</p>
+<p>Differentiable architecture search (<a href="https://arxiv.org/abs/1806.09055">DARTS</a>) assumes a continuous (differentiable) space of solutions, which enables the use of gradient-based optimizers. Adding regularization <a href="https://arxiv.org/abs/1909.09656">improves</a> generalization [<a href="../biblio/#liu2019-f">LSY19</a>; <a href="../biblio/#zela2020">ZES+20</a>]. <a href="https://arxiv.org/abs/1812.00332">ProxylessNAS</a> and <a href="https://arxiv.org/abs/1812.00332">FBNet</a> use differentiable NAS applied to ConvNets to simultaneously learn the weights and the model for mobile phones deployment that are faster, smaller, and equally or more accurate than MobileNetV2 [<a href="../biblio/#cai2019">CZH19</a>; <a href="../biblio/#wu2019-f">WDZ+19</a>].</p>
+<p>NAS-based techniques can reduce the number of required computations for a given topology. Efficient Neural Architecture Search (<a href="https://arxiv.org/abs/1802.03268">ENAS</a>) uses Policy Gradient to learn a subgraph within a larger predefined graph [<a href="../biblio/#pham2018">PGZ+18</a>].</p>
+<p><strong>Meta-learning</strong>, also known as <em>learning to learn</em> and <em>few-shot learning</em>, is a form of transfer learning that learns a model from a few data samples by transferring knowledge from past learning experiences. The motivation is that knowledge learned from one task should benefit a different task; this is how humans learn.</p>
+<p>There are two common approaches to meta-learning: <a href="https://arxiv.org/abs/1904.03758">metric-based</a> where data samples are compared in a learned metric space (similar to nearest-neighbor classifiers) [<a href="../biblio/#vinyals2017">VBL+17</a>; <a href="../biblio/#snell2017">SSZ17</a>; <a href="../biblio/#lee2019-c">LMR+19</a>] and <a href="https://arxiv.org/abs/1810.09502">gradient-based</a> where the model uses an update rule dictated by a meta-learner [<a href="../biblio/#munkhdalai2017">MY17</a>; <a href="../biblio/#finn2017">FAL17</a>; <a href="../biblio/#rusu2019">RRS+19</a>; <a href="../biblio/#antoniou2019">AES19</a>]. A third approach <a href="https://openreview.net/forum?id=rkeiQlBFPB">combines</a> these two approaches [<a href="../biblio/#flennerhag2020">FRP+20</a>].</p>
+<div id="ch10.sec2"></div>
+<h2 id="102-democratizing-dl-platforms">10.2 Democratizing DL Platforms</h2>
+<p>Several companies and cloud service providers developed higher-level platforms on top of the popular frameworks to facilitate a model's life cycle: data preparation, topology exploration, experiment tracking, model packaging, and model deployment at scale. At-scale deployment often uses Kubernetes (k8s) clusters or Spark clusters. These platforms provide a collaborative and secure environment and access to the latest ML libraries. These platforms are designed to meet the needs of the data scientists and the infrastructure teams, which typically have different priorities, as illustrated in Figure <a href="../ch10/#fig:ds-infra">10.1</a>. Some of platforms are open-sourced. In the remainder of this section, we mention existing platforms that companies can adopt or emulate.</p>
+<div id="fig:ds-infra"></div>
+<p><img alt="" src="../figures/ch10-01.png" />
+<em>Figure 10.1:</em> The data science and infrastructure teams have different priorities. Based on [<a href="../biblio/#berg2019">BCC+19</a>].</p>
+<p>Platforms used for first-party users (that is, internal company users as opposed to third-party users, such as the external customers of cloud service providers) are as follows [<a href="../biblio/#hazelwood2018-b">HBB+18</a>; <a href="../biblio/#tensorflow-tfx2020">Goo20e</a>; <a href="../biblio/#mlnet2020">Mic20</a>; <a href="../biblio/#ahmed2019">AAB+19</a>; <a href="../biblio/#katariya2019">KR19</a>; <a href="../biblio/#hermann2018">HDB18</a>; <a href="../biblio/#holler2019">HM19</a>; <a href="../biblio/#metaflow2019">Met19</a>; <a href="../biblio/#metaflow-aws2019">Met19b</a>]:</p>
+<ul>
+<li>
+<p>Facebook <a href="https://ieeexplore.ieee.org/document/8327042">FBLearner</a></p>
+</li>
+<li>
+<p>Google TF Extended (<a href="https://www.tensorflow.org/tfx/">TFX</a>)</p>
+</li>
+<li>
+<p><a href="https://docs.microsoft.com/en-us/dotnet/machine-learning/">Microsoft</a> <a href="https://arxiv.org/abs/1905.05715">ML.NET</a></p>
+</li>
+<li>
+<p>eBay <a href="https://tech.ebayinc.com/engineering/ebays-transformation-to-a-modern-ai-platform/">Krylov</a></p>
+</li>
+<li>
+<p>Uber <a href="https://www.uber.com/blog/scaling-michelangelo/">Michelangelo</a></p>
+</li>
+<li>
+<p>Netflix <a href="https://metaflow.org/">Metaflow</a> (integrated <a href="https://docs.metaflow.org/v/r/metaflow-on-aws">into</a> AWS)</p>
+</li>
+</ul>
+<p>Platforms provided by cloud service providers for third-party users are as follows [<a href="../biblio/#amazon-sagemaker2020">Ama20</a>; <a href="../biblio/#aiplatform2020">Goo20d</a>; <a href="../biblio/#microsoft-azure2020">Mic20b</a>; <a href="../biblio/#alibaba-ml2020">Ali20</a>]:</p>
+<ul>
+<li>
+<p>Amazon <a href="https://aws.amazon.com/sagemaker/">Sagemaker</a></p>
+</li>
+<li>
+<p>Google Cloud <a href="https://cloud.google.com/ai-platform/">AI Platform</a></p>
+</li>
+<li>
+<p>Microsoft Azure <a href="https://azure.microsoft.com/en-us/services/cognitive-services/">cognitive services</a></p>
+</li>
+<li>
+<p>Alibaba <a href="https://www.alibabacloud.com/product/machine-learning">PAI</a></p>
+</li>
+</ul>
+<p>Some of the above platforms can be deployed on-premise to facilitate switching between on-premise and on-cloud. Platforms targeting enterprises are as follows [<a href="../biblio/#mlflow2020">Mlf20</a>; <a href="../biblio/#cortex2020">Cor20</a>; <a href="../biblio/#nvidia-rapids2020">Nvi20</a>; <a href="../biblio/#intel-zoo2020">Int20c</a>; <a href="../biblio/#guildai2020">Gui20</a>; <a href="../biblio/#ray2019">Ber19</a>]:</p>
+<ul>
+<li>
+<p>Intel <a href="https://software.intel.com/en-us/ai/analytics-zoo">Analytics Zoo</a></p>
+</li>
+<li>
+<p>Nvidia <a href="https://developer.nvidia.com/rapids">RAPIDS</a></p>
+</li>
+<li>
+<p>Databricks <a href="https://mlflow.org/">MLflow</a> (to create models)</p>
+</li>
+<li>
+<p><a href="https://github.com/cortexlabs/cortex">Cortex</a> (to deploy models at scale)</p>
+</li>
+<li>
+<p><a href="https://guild.ai/">Guild AI</a></p>
+</li>
+<li>
+<p>UC Berkeley RISE <a href="https://rise.cs.berkeley.edu/projects/ray/">Ray</a></p>
+</li>
+</ul>
+<p>Some platforms facilitate the development and training of new models or the consumption of industry pre-trained models. As DL becomes widely adopted across industries, these platforms may become more critical.</p>
+<div id="ch10.sec3"></div>
+<h2 id="103-security">10.3 Security</h2>
+<p>Security expands all parts for the DL system stack from hardware to model robustness to data privacy. Attacks are increasing in scale and sophistication. In this section, we discuss two areas of active research: (1) adversarial ML and (2) data and model privacy. Although not discussed in further detail, DL is also used to improve security in domains, such as fraud detection, malware detection, <a href="https://arxiv.org/abs/1708.06525">vulnerability detection</a>, and <a href="https://openreview.net/forum?id=r1xwKoR9Y7">software verification</a> [<a href="../biblio/#xu2018">XLF+18</a>; <a href="../biblio/#huang2019-b">HDS+19</a>].</p>
+<p><strong>Adversarial machine learning</strong> is the study of learning and preventing attacks. Adversarial attacks use tuned signals designed to deceive the model into producing a different than expected output. To illustrate, a correctly classified bus image can be imperceptibly perturbed <a href="https://arxiv.org/abs/1312.6199">to deceive a model</a> to label it as an ostrich [<a href="../biblio/#szegedy2014-b">SZS+14</a>]. Adversarial attacks put in jeopardy applications where safety or security is critical, such as autonomous driving and biometric authentication.</p>
+<p>Compressing a model makes it <a href="https://arxiv.org/abs/1902.03538">more vulnerable</a> to these attacks by <a href="https://arxiv.org/abs/1904.08444">enlarging</a> the magnitude of the adversarial noise [<a href="../biblio/#gui2019">GWY+19</a>; <a href="../biblio/#lin2019-b">LGH19</a>]. Training models robust to adversarial attacks can require <a href="https://arxiv.org/abs/1805.12152">larger</a> models to converge to flatter minima (see Section <a href="../ch04/#ch04.sec1">4.1</a>), which in turn may require more computational resources [<a href="../biblio/#tsipras2019">TSE+19</a>].</p>
+<p>There are two types of adversarial attacks: white-box and black-box attacks. In white-box attacks, the attacker knows the details of the target models, and in black-box attacks, the attacker does not have these details. Several techniques <a href="https://arxiv.org/abs/1802.00420">have been developed</a> (none of them bulletproof) to increase robustness to adversarial attacks, including the following [<a href="../biblio/#athalye2018">ACW18</a>; <a href="../biblio/#papernot2016">PMW+16</a>; <a href="../biblio/#xu2017">XEQ17</a>; <a href="../biblio/#meng2017">MC17</a>; <a href="../biblio/#tramer2018">TKP+18</a>; <a href="../biblio/#dhillon2018">DAL+18</a>; <a href="../biblio/#madry2019">MMS+19</a>; <a href="../biblio/#nakkiran2019-b">Nak19</a>; <a href="../biblio/#lin2019-b">LGH19</a>; <a href="../biblio/#balunovic2020">BV20</a>; <a href="../biblio/#xiao2020">XZZ20</a>]:</p>
+<ul>
+<li>
+<p>defensive distillation to reduce the amplitude of the gradients, known as <em>gradient masking</em>, and <a href="https://arxiv.org/abs/1511.04508">smooth the model</a>;</p>
+</li>
+<li>
+<p><a href="https://arxiv.org/abs/1704.01155">reducing</a> the bits per pixels in the input image and using spatial smoothing;</p>
+</li>
+<li>
+<p>training a model <a href="https://arxiv.org/abs/1705.09064">to modify</a> adversarial examples, so they are correctly classified;</p>
+</li>
+<li>
+<p><a href="https://arxiv.org/abs/1705.07204">augmenting</a> the training dataset with adversarial examples;</p>
+</li>
+<li>
+<p>using models with <a href="https://arxiv.org/abs/1706.06083">larger capacity</a> (more weights) than needed;</p>
+</li>
+<li>
+<p><a href="https://arxiv.org/abs/1904.08444">optimizing</a> robustness at smaller numerical representations;</p>
+</li>
+<li>
+<p>iteratively <a href="https://openreview.net/forum?id=SJxSDxrKDr">training</a> a model with an adversary; and</p>
+</li>
+<li>
+<p>using the <a href="https://openreview.net/forum?id=Skgvy64tvr"><span class="arithmatex">\(k\)</span>-winners-take-all</a> activation function.</p>
+</li>
+</ul>
+<p>Generative attacks use generative models to generate realistic data samples. These samples can deceive an authentication system or a human into believing the data is real. <a href="https://openreview.net/forum?id=BkgzMCVtPB">Mor et al.</a> provide optimal strategies for the attacker and the authenticator systems and provide insights to design models robust to attacks [<a href="../biblio/#mor2020">MPG+20</a>].</p>
+<p><strong>Privacy</strong> is an area of active research. Key areas focused on preserving privacy are federated learning, GAN cryptography, homomorphic encryption, secured multiparty computations, and differential privacy.</p>
+<p>Federated learning, discussed in Section <a href="../ch05/#ch05.sec3">5.3</a>, ensures that data stays local and is not transmitted to a centralized location. Training happens locally, and only the model updates are transmitted. However, some information about the local training data can be <a href="https://arxiv.org/abs/1702.07464">extracted</a> from local updates [<a href="../biblio/#hitaj2017">HAP17</a>]. The updates should be encrypted before transmission and unencrypted only <a href="https://dl.acm.org/doi/10.1145/3133956.3133982">after</a> the centralized location receives multiple models to preserve privacy [<a href="../biblio/#bonawitz2017">BIK+17</a>].</p>
+<p><a href="https://arxiv.org/abs/1610.06918">GAN cryptography</a> can facilitate training models that perform encryption and decryption [<a href="../biblio/#abadi2016-b">ACG+16</a>]. Intel is developing homomorphic encryption <a href="https://www.intel.com/content/www/us/en/artificial-intelligence/posts/he-transformer-for-ngraph-enabling-deep-learning-on-encrypted-data.html">tools</a> to facilitate building models that operate on encrypted data. Homomorphic encryption <a href="https://crypto.stanford.edu/craig/craig-thesis.pdf">methods</a>, in theory, enable training and serving models using encrypted data; in practice, they require enormously more computations [<a href="../biblio/#gentry2009">Gen09</a>]. Another more computationally feasible method is secure multiparty computations (<a href="https://www.sciencedirect.com/science/article/pii/S0020025518308338">SMPC</a>), where parties jointly compute functions without revealing their inputs and outputs [<a href="../biblio/#zhao2019-c">ZZZ+19</a>].</p>
+<p>Differential privacy is an area of <a href="https://openreview.net/forum?id=SJx0q1rtvS">active research</a> to train models without compromising the privacy of the training dataset [<a href="../biblio/#abadi2016-c">AA16</a>; <a href="../biblio/#jordon2019">JYv19</a>; <a href="../biblio/#lecuyer2019">LAG+19</a>; <a href="../biblio/#du2020">DJS20</a>; <a href="../biblio/#differential-privacy2020">Goo20b</a>; <a href="../biblio/#wilson2019">WZL+19</a>]. Large models can memorize training data, and attackers may be able to extract information from a trained model. To illustrate, using a sentence completion tool an attacker types "The bank account of Amy Jones is", and the tool may regurgitate the actual account number if it is in the training dataset. To mitigate this vulnerability, Apple <a href="https://www.apple.com/privacy/docs/Differential_Privacy_Overview.pdf">uses</a> differential privacy technology adding some noise to the data in a user's device before such data is transmitted to Apple.</p>
+<div id="ch10.sec4"></div>
+<h2 id="104-interpretability">10.4 Interpretability</h2>
+<p>Interpretability is an area of active research to explain the reasons for the decisions, biases, and limitations of a given model. Limited interpretability is a barrier for some industries adopting DL algorithms despite their higher statistical performance. For instance, online credit applications should provide the reasons that a given loan was accepted or rejected. This <a href="https://en.wikipedia.org/wiki/Right_to_explanation"><em>right-to-explanation</em></a> is required in some legal systems.</p>
+<div id="fig:explainability"></div>
+<p><img alt="" src="../figures/ch10-02.png" />
+<em>Figure 10.2:</em> Algorithms that are more interpretable typically have lower accuracy. Note this is not shown to scale, but rather is a generalization of the algorithms' interpretability. Based on [<a href="../biblio/#gunning2021">GVW21</a>].</p>
+<p>Interpretability methods can be applied to a topology using attention. Attention-based models learn to focus on the relevant inputs to produce a given output, which results in superior statistical performance while simultaneously provides <a href="https://www.nature.com/articles/s41598-019-38491-0">interpretable insights</a> [<a href="../biblio/#arik2019">AP19</a>; <a href="../biblio/#kaji2019">KZK+19</a>; <a href="../biblio/#shickel2019">SLA+19</a>].</p>
+<p><a href="https://glizen.com/radfordneal/ftp/thesis.pdf">BNN</a> combine the strength of NNs and Bayesian models to estimate the uncertainty of a NN prediction [<a href="../biblio/#neal1995">Nea95</a>]. They can estimate uncertainty and provide performance guarantees. However, they are computationally expensive and require a good prior approximation to make them useful. BNNs are an active field of research.</p>
+<p>An already trained model may be interpreted using activations, a saliency map, and testing concept vectors as follows: <a href="https://arxiv.org/abs/1311.2901">visualizing</a> the activation features can provide <a href="https://distill.pub/2018/building-blocks/">insights</a> into what a neuron or group of neurons learned but provides no insights into why a decision was made [<a href="../biblio/#zeiler2013">ZF13</a>; <a href="../biblio/#olah2018">OSJ+18</a>].</p>
+<p>Another approach is using saliency maps to measure the impact of each input <span class="arithmatex">\(x_i\)</span> in the output <span class="arithmatex">\(p(z): \frac{\partial p(z)}{\partial x_i}.\)</span> Salient maps are used in various domains, including in RL to <a href="https://openreview.net/forum?id=SJgzLkBKPB">gain insights</a> on the behavior of learned agents [<a href="../biblio/#gupta2020">GPV+20</a>]. However, saliency map methods may lack reliability [<a href="../biblio/#adebayo2018">AGM+18</a>; <a href="../biblio/#hooker2019">HEK+19</a>].</p>
+<p>Google developed <a href="https://arxiv.org/abs/1711.11279">testing concept activation vectors</a> (<a href="https://github.com/tensorflow/tcav">TCAV</a>) to quantify the importance of user-defined concepts in a model's output [<a href="../biblio/#kim2018">KWG+18</a>; <a href="../biblio/#tcav2020">Goo20f</a>]. TCAV learns concepts from examples. For instance, to determine the importance of stripes in classifying an image as a zebra, a concept is learned using images of stripes, and then TCAV can test the model using this learned concept. A current limitation is that the user needs to determine which concepts to test and needs training samples to learn the concept.</p>
+<p>Another aspect of interpretability is giving users <a href="https://arxiv.org/abs/1810.03993">information</a> about the training of the model. This information includes the objective function (what the model is mathematically designed to do), and the type of <a href="https://arxiv.org/abs/1803.09010">training data</a> [<a href="../biblio/#mitchell2019">MWZ+19</a>; <a href="../biblio/#gebru2020">GMV+20</a>]. Model developers should explain where the model works and where it fails and possible biases in the model. Google calls this the <a href="https://modelcards.withgoogle.com/about">model card</a>. This level of transparency is vital to accelerate DL adoption and mitigate misuse or unintended consequences. The <a href="https://www.partnershiponai.org/about-ml/">Partnership on AI</a> is one effort in this direction. University of Washington's <a href="https://github.com/marcotcr/lime">LIME</a> and Google's <a href="https://pair-code.github.io/what-if-tool/index.html#about">What If Tool</a> provide tools to analyze a model to assist in this effort.</p>
+<div id="ch10.sec5"></div>
+<h2 id="105-society-impact">10.5 Society Impact</h2>
+<p>Artificial intelligence is improving multiple facets of society. Advances in DL and technology are connecting the world. The monetary cost to communicate with people from around the world is small and continues to decrease. NLP algorithms are breaking language barriers; in the near future, persons without a common language may communicate in real-time with neural speech-to-speech interpreters. In some areas, however, DL has a negative impact, and society should address them. In this section, we briefly discuss crucial areas: polarization, algorithmic fairness, unemployment, power consumption, and copyright violations.</p>
+<p>DL is contributing to the polarization of society through personalized content. Companies that provide social media, news feeds, online videos, and other similar services, may optimize a metric related to maximizing user engagement. The result is content that reinforces, rather than challenges, personal views limiting exposure to diverse postulations. In the author's opinion, this limited exposure is the biggest threat that DL imposes to society because it can reverse the progress toward a more empathetic society. It is unclear how to address this challenge, given the monetary incentives to maximize user engagement, and the competition between various content providers. Facebook works to <a href="https://about.fb.com/wp-content/uploads/2020/10/What-The-Social-Dilemma-Gets-Wrong.pdf">reduce</a> the amount of content that could drive polarization; however, the specific ways are not publicly disclosed.</p>
+<p>Data and algorithmic bias is a substantial issue in several production DL systems with <a href="https://arxiv.org/abs/1803.04383">detrimental effects</a> [<a href="../biblio/#liu2018-b">LDR+18</a>]. Training data is often skewed toward a demographic and <a href="https://arxiv.org/abs/1607.06520">incorporates</a> human biases [<a href="../biblio/#bolukbasi2016">BCZ+16</a>]. Model developers should strive to collect unbiased data, and provide a model card (discussed in Section <a href="#ch10.sec4">1.4</a>). For instance, all other factors being equal, a loan application should produce the same output across gender and race.</p>
+<p>An area in which DL usually <a href="https://www.cs.princeton.edu/~arvindn/talks/MIT-STS-AI-snakeoil.pdf">breaks down</a> is in behavior prediction, such as recidivism, job success, terrorist risk, and at-risk kids [<a href="../biblio/#narayanan2019">Nar19</a>]. Given the current limited interpretability and biases in datasets, these types of behavior prediction applications should be avoided.</p>
+<p>The community is developing tools to improve fairness. In addition to the tools mentioned in Section <a href="#ch10.sec4">1.4</a> for interpretability, <a href="https://aif360.res.ibm.com/">IBM's AI Fairness 360 Toolkit</a> can examine, report, and mitigate discrimination and bias in DL models using dozens of fairness metrics.</p>
+<p>Technology advances increase human productivity and reduce the amount of human labor required to produce a set of goods. On the one hand, this increased productivity can result in shorter work hours, higher pay, and cheaper goods. On the other hand, as the cost of automation rapidly decreases, the need for human labor in various sectors of the economy diminishes. The rapid advancements in automation may result in significant unemployment if not adequately addressed. Some potential solutions are universal income, shorter work hours at higher pay, or re-education programs.</p>
+<p>DL models require significant power budgets for training and serving. As they become more prominent in society, their large power consumption can negatively contribute to climate change. Fortunately, there is work-in-progress to develop smaller and more efficient models with smaller power budgets. In addition, DL algorithms <a href="https://www.climatechange.ai/NeurIPS2019_workshop.html">are being used</a> to find methods <a href="https://arxiv.org/abs/1906.05433">to mitigate</a> climate change [<a href="../biblio/#rolnick2019-b">RDK+19</a>].</p>
+<p>DL algorithms can be used to generate music, poetry, paintings, and voices and images of real persons using generative models. Models can generate synthetic content, including fake videos of real people. It is not clear how to simultaneously protect the individual rights of those people and the freedom-of-speech rights of the producer of those videos. Another challenge is that the generative model's training datasets can potentially contain copyright material, and it is not clear how to protect the rights of the original authors. In the United States, copyright material <a href="https://en.wikipedia.org/wiki/Authors_Guild,_Inc._v._Google,_Inc.">can be used</a> to train search algorithms (using discriminative, rather than generative models) [<a href="../biblio/#wiki-authorsguild2020">Wik20</a>].</p>
+<p>These challenges are also a motivation to expand the public's knowledge of DL so that society can collectively find better ways to address them.</p>
+<div id="ch10.sec6"></div>
+<h2 id="106-concluding-remarks">10.6 Concluding Remarks</h2>
+<p>The adoption of DL systems is rapidly growing and improving many technologies and services. In this book, we covered the algorithms, hardware, and compilers used in large-scale DL production systems by hyperscalers. We analyze the building blocks or primitives of computation graphs or topologies used in commercial applications. We explained the different types of workloads common at hyperscalers, academia, and smaller sized companies and highlighted the importance and prevalence of recommender models. We provided guidelines to train and debug a model so that it generalizes to data outside the training dataset, recommended the Ranger, Adam, SGDM, and LARS optimizers to train a model, and explained how to compute the gradients via backpropagation as a set of multiplications and additions. We highlighted the benefits of finding a batch size that results in high hardware utilization and low time-to-train.</p>
+<p>As training times are getting prohibitively long on a single node, and some model sizes exceed a node's memory capacity, distributed training is required and used across hyperscalers. We provided guidelines for distributed training and recommended using a hybrid approach for large models: data parallelism is used across groups of super-nodes, and model parallelism is used within each super-node with <span class="arithmatex">\(4\)</span>-<span class="arithmatex">\(8\)</span> nodes per super-node. We highlighted pipeline parallelism as a promising approach to improve model parallelism, which is particularly beneficial for hardware platforms with large SRAM attempting to eliminate most DRAM accesses. However, further advances are needed to mitigate stalled weight updates and gain broad adoption.</p>
+<p>Memory bandwidth is a common bottleneck in training and serving models. We discussed various smaller numerical formats to reduce the size of the model, which alleviates this bottleneck and results in more FPU units per die area. We recommended that production training hardware support <span class="arithmatex">\(bf16\)</span>, <span class="arithmatex">\(fp16\)</span>, and <span class="arithmatex">\(fp32\)</span> compute, and inference hardware support <span class="arithmatex">\(fp16\)</span>, <span class="arithmatex">\(bf16\)</span>, <span class="arithmatex">\(fp8\)</span>, <span class="arithmatex">\(\mathit{int8}\)</span>, and some <span class="arithmatex">\(fp32\)</span> compute. We also highlighted the statistical performance penalty when using <span class="arithmatex">\(\mathit{int8}\)</span> for various workloads. Hessian-based methods can guide the selection of quantizable layers and mitigate this penalty.</p>
+<p>The rapid topology and algorithmic innovation motivate the adoption of a flexible platform that supports a broad spectrum of workloads, including disaggregated CPU to accelerator ratio, a standard form factor module, and an industry-standard interconnect to scale out the architecture. We discussed some of the performance vs. ease-of-programmability tradeoffs across various hardware designs used for DL, including the challenges of software-managed memory and the complexities of extracting high performance.</p>
+<p>Central to DL systems are compilers to effectively lower a program to the target hardware. We detailed various optimization passes and highlighted operation fusion and loop tiling as pivotal optimizations to reduce memory accesses and efficiently use local memory. We discussed features in the popular frameworks TensorFlow and PyTorch, as well as the compilers TVM and XLA and others. Advancing compilers are critical to facilitate entry and competitiveness in the ecosystem.</p>
+<p>We are in the early days of DL systems with exciting avenues to pursue and challenges to overcome. One of the most promising opportunities is using ML algorithms to improve the DL system stack. We reviewed potential ML for DL usages and highlighted some of the challenges the community needs to tackle.</p>
+<p>I hope the concepts you learned in this book help you better engage with data scientists, hardware engineers, and compiler and performance engineers to tackle the compute, bandwidth, and memory demands, address the societal challenges, use ML to improve DL systems, and contribute to this exciting field. Thank you for your interest in DL systems and for the time you committed to studying this book.</p>
+
+  <br>
+    
+
+    
+    
+      
+    
+
+  <div class="row wm-article-nav-buttons" role="navigation" aria-label="navigation">
+    
+    <div class="wm-article-nav pull-right">
+      <a href="../biblio/" class="btn btn-xs btn-default pull-right">
+        Next
+        <i class="fa fa-chevron-right" aria-hidden="true"></i>
+      </a>
+      <a href="../biblio/" class="btn btn-xs btn-link">
+        Bibliography
+      </a>
+    </div>
+    
+    <div class="wm-article-nav">
+      <a href="../ch09/" class="btn btn-xs btn-default pull-left">
+        <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        Previous</a><a href="../ch09/" class="btn btn-xs btn-link">
+        Chapter 9: Frameworks and Compilers
+      </a>
+    </div>
+    
+  </div>
+
+    <br>
+</div>
+
+<footer class="container-fluid wm-page-content">
+  <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a> using <a href="https://github.com/gristlabs/mkdocs-windmill">Windmill</a> theme by Grist Labs.</p>
+</footer>
+
+</body>
+</html>
